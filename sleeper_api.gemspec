@@ -5,12 +5,12 @@ require_relative "lib/sleeper_api/version"
 Gem::Specification.new do |spec|
   spec.name = "sleeper_api"
   spec.version = SleeperApi::VERSION
-  spec.authors = ["Eruity"]
+  spec.authors = ["Eruity1"]
   spec.email = ["ethanruity@icloud.com"]
 
-  spec.summary = "TODO: Write a short summary, because RubyGems requires one."
-  spec.description = "TODO: Write a longer description or delete this line."
-  spec.homepage = "TODO: Put your gem's website or public repo URL here."
+  spec.summary = "Ruby wrapper for the Sleeper fantast sports API"
+  spec.description = "A comprehensive Ruby gem for interacting with Sleeper's fantasy football API, including leagues, users, drafts, and matchups."
+  spec.homepage = "https://github.com/eruity1/sleeper_api"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 2.6.0"
 

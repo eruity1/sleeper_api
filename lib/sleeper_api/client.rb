@@ -6,8 +6,6 @@ module SleeperApi
     include HTTParty
     base_uri "https://api.sleeper.app/v1"
 
-    attr_reader :config
-
     def initialize(config)
       @config = config
       @cache = { players: nil, timeout: nil }

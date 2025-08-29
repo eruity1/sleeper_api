@@ -1,10 +1,9 @@
-# frozen_string_literal: true
-
 source "https://rubygems.org"
-
-# Specify your gem's dependencies in sleeper_api.gemspec
 gemspec
 
-gem "rake", "~> 13.0"
-gem "rspec", "~> 3.0"
-gem "rubocop", "~> 1.21"
+gem "httparty", "~> 0.21"
+
+group :development do
+  gem "rspec", "~> 3.10"
+  gem "rubocop", "~> 1.21"
+end

@@ -1,13 +1,12 @@
 require 'httparty'
 require 'json'
-require 'logger'
 
 module SleeperApi
   class Client
     include HTTParty
     base_uri "https://api.sleeper.app/v1"
 
-    attr_reader :base_url, :timeout, :retries, :logger
+    attr_reader :config
 
     def initialize(config)
       @config = config
@@ -18,11 +17,11 @@ module SleeperApi
       League.new(league_id, self, weeks)
     end
 
-    def user(identifier, self)
+    def user(identifier)
       User.new(identifier, self)
     end
 
-    def draft(draft_id, self)
+    def draft(draft_id)
       Draft.new(draft_id, self)
     end
 
@@ -59,7 +58,7 @@ module SleeperApi
     end
 
     def get_toilet_bowl(league_id)
-      make_request("/league/#{league_id}/losers_bracker")
+      make_request("/league/#{league_id}/losers_bracket")
     end
 
     def get_transactions(league_id, week)
@@ -96,7 +95,7 @@ module SleeperApi
 
     def get_players(sport = "nfl")
       cache_file = 'players_cache.json'
-      if File.exists?(cache_file) && !cache_expired?(cache_file)
+      if File.exist?(cache_file) && !cache_expired?(cache_file)
         @cache[:players] ||= JSON.parse(File.read(cache_file))
       else
         response = make_request("/players/#{sport}")
@@ -113,17 +112,25 @@ module SleeperApi
     private
 
     def make_request(path)
+      @config.logger&.info("Making request to #{base_uri}#{path}")
       retries = 0
       begin
         response = self.class.get(path, timeout: @config.timeout)
-        raise SleeperApi::Error, "Failed to fetch #{path}: #{response.code}" unless response.success?
-        response
-      rescue Net::OpenTimeout, Net::ReadTimeout
+        if response.success?
+          @config.logger&.info("Successful response for #{path}")
+          response
+        else
+          @config.logger&.error("Failed to fetch #{path}: #{response.code}")
+          raise SleeperApi::Error, "Failed to fetch #{path}: #{response.code}"
+        end
+      rescue Net::OpenTimeout, Net::ReadTimeout => e
         retries += 1
         if retries <= @config.retries
+          @config.logger&.warn("Retrying #{path} (attempt #{retries}/#{config.retries}) due to #{e}")
           sleep(1)
           retry
         else
+          @config.logger&.error("Request timed out for #{path} after #{retries} retries")
           raise SleeperApi::Error, "Request timed out after #{retries} retries"
         end
       end

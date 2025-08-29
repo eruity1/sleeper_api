@@ -1,7 +1,9 @@
 # frozen_string_literal: true
 require_relative "sleeper_api/version"
 require_relative "sleeper_api/client"
-# require_relative "sleeper_api/league"
+require_relative "sleeper_api/league"
+require_relative "sleeper_api/user"
+require_relative "sleeper_api/draft"
 
 module SleeperApi
   class Error < StandardError; end
@@ -20,7 +22,7 @@ module SleeperApi
   end
 
   class Configuration
-    attr_accessor :timeout, :retries
+    attr_accessor :timeout, :retries, :logger
 
     MIN_TIMEOUT = 10
     MAX_TIMEOUT = 60
@@ -30,6 +32,7 @@ module SleeperApi
     def initialize
       @timeout = 30
       @retries = 3
+      @logger = nil
     end
 
     def timeout=(value)
@@ -46,6 +49,10 @@ module SleeperApi
       else
         raise SleeperApi::Error, "Retries must be between #{MIN_RETRIES} and #{MAX_RETRIES}"
       end
+    end
+
+    def logger=(value)
+      @logger = value
     end
   end
 end

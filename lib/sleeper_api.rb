@@ -1,15 +1,15 @@
-# frozen_string_literal: true
 require_relative "sleeper_api/version"
 require_relative "sleeper_api/client"
 require_relative "sleeper_api/league"
 require_relative "sleeper_api/user"
 require_relative "sleeper_api/draft"
+require_relative "sleeper_api/cache"
 
 module SleeperApi
   class Error < StandardError; end
   
   class << self
-    attr_accessor :configuration
+    attr_writer :configuration
   end
 
   def self.configure
@@ -19,6 +19,10 @@ module SleeperApi
 
   def self.client
     @client ||= Client.new(configuration)
+  end
+
+  def self.configuration
+    @configuration ||= Configuration.new
   end
 
   class Configuration

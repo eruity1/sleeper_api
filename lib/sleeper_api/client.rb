@@ -8,7 +8,6 @@ module SleeperApi
 
     def initialize(config)
       @config = config
-      @cache = { players: nil, timeout: nil }
     end
 
     def league(league_id, weeks = 1..17)
@@ -92,15 +91,14 @@ module SleeperApi
     end
 
     def get_players(sport = "nfl")
-      cache_file = 'players_cache.json'
-      if File.exist?(cache_file) && !cache_expired?(cache_file)
-        @cache[:players] ||= JSON.parse(File.read(cache_file))
-      else
-        response = make_request("/players/#{sport}")
-        @cache[:players] = response
-        File.write(cache_file, JSON.dump(response))
-      end
-      @cache[:players]
+      cache = SleeperApi::Cache.new()
+      cached = cache.read
+      return cached if cached
+
+      response = make_request("/players/#{sport}")
+      parsed = deep_parse(response)
+      cache.write(parsed)
+      parsed
     end
 
     def get_player_by_id(player_id, sport = "nfl")
@@ -134,8 +132,14 @@ module SleeperApi
       end
     end
 
-    def cache_expired?(file)
-      File.mtime(file) < Time.now - 24 * 60 * 60
+    def deep_parse(json, max_attempts = 4)
+      parsed = json
+      attempts = 0
+      while parsed.is_a?(String) && attempts < max_attempts
+        parsed = JSON.parse(parsed)
+        attempts += 1
+      end
+      parsed
     end
   end
 end

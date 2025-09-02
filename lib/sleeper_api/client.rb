@@ -96,7 +96,7 @@ module SleeperApi
       return cached if cached
 
       response = make_request("/players/#{sport}")
-      parsed = deep_parse(response)
+      parsed = response.parsed_response
       cache.write(parsed)
       parsed
     end
@@ -130,16 +130,6 @@ module SleeperApi
           raise SleeperApi::Error, "Request timed out after #{retries} retries"
         end
       end
-    end
-
-    def deep_parse(json, max_attempts = 4)
-      parsed = json
-      attempts = 0
-      while parsed.is_a?(String) && attempts < max_attempts
-        parsed = JSON.parse(parsed)
-        attempts += 1
-      end
-      parsed
     end
   end
 end

@@ -10,8 +10,8 @@ module SleeperApi
       @config = config
     end
 
-    def league(league_id, weeks = 1..17)
-      League.new(league_id, self, weeks)
+    def league(league_id)
+      League.new(league_id, self)
     end
 
     def user(identifier)
@@ -108,7 +108,7 @@ module SleeperApi
     private
 
     def make_request(path)
-      @config.logger&.info("Making request to #{base_uri}#{path}")
+      @config.logger&.info("Making request to #{self.class.base_uri}#{path}")
       retries = 0
       begin
         response = self.class.get(path, timeout: @config.timeout)

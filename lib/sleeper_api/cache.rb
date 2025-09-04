@@ -5,13 +5,17 @@ module SleeperApi
     def initialize
       @file_path = 'players_cache.json'
       @ttl = 24 * 60 * 60
+      @cache = nil
     end
 
     def read
+      return @cache if @cache && !expired?
+
       return nil unless File.exist?(@file_path)
       return nil if expired?
 
-      JSON.parse(File.read(@file_path))
+      @cache = JSON.parse(File.read(@file_path))
+      @cache
     rescue JSON::ParserError
       nil
     end

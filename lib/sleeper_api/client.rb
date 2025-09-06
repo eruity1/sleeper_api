@@ -26,11 +26,11 @@ module SleeperApi
       make_request("/user/#{identifier}")
     end
 
-    def get_user_leagues(user_id, sport = "nfl", season = Time.now.year)
+    def get_user_leagues(user_id, sport: "nfl", season: Time.now.year)
       make_request("/user/#{user_id}/leagues/#{sport}/#{season}")
     end
 
-    def get_user_drafts(user_id, sport = "nfl", season = Time.now.year)
+    def get_user_drafts(user_id, sport: "nfl", season: Time.now.year)
       make_request("/user/#{user_id}/drafts/#{sport}/#{season}")
     end
 

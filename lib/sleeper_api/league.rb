@@ -4,7 +4,7 @@ module SleeperApi
 
     attr_reader :league_id, :weeks, :league_rosters, :league_users, :matchups, :transactions
 
-    def initialize(league_id, client)
+    def initialize(league_id, client, no_data: false)
       @league_id = league_id
       @client = client
       @weeks = 1..17
@@ -14,13 +14,17 @@ module SleeperApi
       @matchups = nil
       @transactions = nil
 
-      fetch_league_data
+      fetch_league_data unless no_data
     end
 
     ATTRIBUTES.each do |attr|
       define_method(attr) do
         @league_data[attr]
       end
+    end
+
+    def avatar_url
+      avatar ? "https://sleepercdn.com/avatars/#{avatar}" : nil
     end
 
     def reigning_champ
@@ -43,10 +47,14 @@ module SleeperApi
       @matchups
     end
 
-    def rosters(roster_id: nil)
+    def rosters(roster_id: nil, user_id: nil)
       fetch_rosters unless @league_rosters
       fetch_users unless @league_users
+
       rosters = roster_id ? @league_rosters.select { |roster| roster["roster_id"] == roster_id } : @league_rosters
+  
+      return rosters.find { |roster| roster["owner_id"] == user_id } if user_id
+
       rosters.map do |roster|
         user = @league_users.find { |user| user["user_id"] == roster["owner_id"] }
         {
@@ -73,6 +81,7 @@ module SleeperApi
 
     def matchups_by_week(week)
       raise ArgumentError, "Week must be between 1 and 17" unless (@weeks).include?(week)
+
       fetch_matchups([week]) unless @matchups&.key?(week)
       week_matchups = @matchups[week] || []
       return [] if week_matchups.empty?
@@ -115,14 +124,15 @@ module SleeperApi
           team_name: user["metadata"]["team_name"],
           commissioner: user["is_owner"],
           is_bot: user["is_bot"],
-          metadata: user["metadata"],
-          settings: user["settings"]
+          metadata: user["metadata"].transform_keys(&:to_sym),
+          settings: user["settings"].is_a?(Hash) ? user["settings"].transform_keys(&:to_sym) : user["settings"]
         }
       end
     end
 
     def transactions(week)
       raise ArgumentError, "Week must be between 1 and 17" unless (@weeks).include?(week)
+      
       fetch_transactions([week]) unless @transactions&.key?(week)
       (@transactions[week] || []).map do |transaction|
         draft_picks = transaction["draft_picks"]&.map do |pick|
@@ -156,7 +166,7 @@ module SleeperApi
           waiver_order: transaction["settings"]&.dig("seq"),
           draft_picks: draft_picks,
           waiver_budget: waiver_budget,
-          metadata: transaction["metadata"],
+          metadata: transaction["metadata"].is_a(Hash) ? transaction["metadata"].transform_keys(&:to_sym) : transaction["metadata"],
           created_by_user_id: transaction["creator"]
         }
       end
@@ -189,6 +199,20 @@ module SleeperApi
       weeks.each do |week|
         next if @transactions[week]
         @transactions[week] = @client.get_transactions(@league_id, week)
+      end
+    end
+
+    def deep_symbolize_keys(obj)
+      case obj
+      when Hash
+        obj.each_with_object({}) do |(k, v), result|
+          key = k.is_a?(String) ? k.to_sym : k
+          result[key] = deep_symbolize_keys(v)
+        end
+      when Array
+        obj.map { |e| deep_symbolize_keys(e) }
+      else
+        obj
       end
     end
   end

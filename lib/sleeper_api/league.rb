@@ -1,6 +1,11 @@
 module SleeperApi
   class League
-    ATTRIBUTES = %w[name league_id total_rosters status sport settings season_type season scoring_settings roster_positions previous_league_id draft_id bracket_id bracket_overrides_id loser_bracket_id loser_bracket_overrides_id group_id avatar company_id shard last_message_id last_author_avatar last_author_display_name last_author_id last_author_is_bot last_message_attachment last_message_text_map last_message_time last_pinned_message_id last_read_id metadata].freeze
+    ATTRIBUTES = %w[name league_id total_rosters status sport settings season_type season 
+                    scoring_settings roster_positions previous_league_id draft_id bracket_id 
+                    bracket_overrides_id loser_bracket_id loser_bracket_overrides_id group_id 
+                    avatar company_id shard last_message_id last_author_avatar last_author_display_name 
+                    last_author_id last_author_is_bot last_message_attachment last_message_text_map 
+                    last_message_time last_pinned_message_id last_read_id metadata].freeze
 
     attr_reader :league_id, :weeks, :league_rosters, :league_users, :matchups, :transactions
 

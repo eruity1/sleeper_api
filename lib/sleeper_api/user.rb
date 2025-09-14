@@ -1,6 +1,8 @@
 module SleeperApi
   class User
-    ATTRIBUTES = %w[username user_id display_name avatar email cookies created currencies data_updated deleted is_bot metadata notifications pending phone real_name solicitable summoner_name summoner_region token verification].freeze
+    ATTRIBUTES = %w[username user_id display_name avatar email cookies created currencies 
+    data_updated deleted is_bot metadata notifications pending phone real_name solicitable 
+    summoner_name summoner_region token verification].freeze
 
     attr_reader :identifier, :leagues, :drafts
 

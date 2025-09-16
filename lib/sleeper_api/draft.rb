@@ -69,12 +69,12 @@ module SleeperApi
         season: season,
         total_picks: picks.length,
         total_rounds: settings["rounds"] || 0,
-        top_picks: picks.select { |p| p[:round] == 1 }.map do |p|
+        top_picks: picks.select { |pick| pick[:round] == 1 }.map do |pick|
           {
-            player_id: p[:player_id],
-            player_name: "#{p[:metadata][:first_name]} #{p[:metadata][:last_name]}",
-            position: p[:metadata][:position],
-            picked_by: p[:picked_by]
+            player_id: pick[:player_id],
+            player_name: "#{pick[:metadata][:first_name]} #{pick[:metadata][:last_name]}",
+            position: pick[:metadata][:position],
+            picked_by: pick[:picked_by]
           }
         end
       }
@@ -87,11 +87,11 @@ module SleeperApi
     end
 
     def fetch_picks
-      @picks ||= @client.get_draft_picks(@draft_id).map { |pick| deep_symbolize_keys(pick) }
+      @picks ||= (@client.get_draft_picks(@draft_id) || []).map { |pick| deep_symbolize_keys(pick) }
     end
 
     def fetch_traded_picks
-      @traded_picks ||= @client.get_draft_traded_picks(@draft_id).map { |pick| deep_symbolize_keys(pick) }
+      @traded_picks ||= (@client.get_draft_traded_picks(@draft_id) || []).map { |pick| deep_symbolize_keys(pick) }
     end
   end
 end

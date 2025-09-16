@@ -222,7 +222,7 @@ module SleeperApi
     end
 
     def format_users
-      @league_users.map do |user|
+      (@league_users || []).map do |user|
         {
           user_id: user["user_id"],
           username: user["username"],

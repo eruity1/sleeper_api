@@ -1,15 +1,14 @@
 module SleeperApi
   class League
-    ATTRIBUTES = %w[name league_id total_rosters status sport settings season_type season 
-                    scoring_settings roster_positions previous_league_id draft_id bracket_id 
-                    bracket_overrides_id loser_bracket_id loser_bracket_overrides_id group_id 
-                    avatar company_id shard last_message_id last_author_avatar last_author_display_name 
-                    last_author_id last_author_is_bot last_message_attachment last_message_text_map 
-                    last_message_time last_pinned_message_id last_read_id metadata].freeze
+    include Helpers
 
-    attr_reader :league_id, :weeks, :league_rosters, :league_users, :matchups, :transactions
+    ATTRIBUTES = %w[name league_id total_rosters status sport settings season_type season scoring_settings roster_positions previous_league_id draft_id bracket_id bracket_overrides_id loser_bracket_id loser_bracket_overrides_id group_id avatar company_id shard last_message_id last_author_avatar last_author_display_name last_author_id last_author_is_bot last_message_attachment last_message_text_map last_message_time last_pinned_message_id last_read_id metadata].freeze
+
+    attr_reader :league_id, :weeks, :league_rosters, :league_users, :matchups, :transactions, :playoff_bracket, :toilet_bowl
 
     def initialize(league_id, client, no_data: false)
+      raise ArgumentError, "league_id must be a non-empty string" if league_id.to_s.empty?
+
       @league_id = league_id
       @client = client
       @weeks = 1..17
@@ -18,6 +17,8 @@ module SleeperApi
       @league_users = nil
       @matchups = nil
       @transactions = nil
+      @playoff_bracket = nil
+      @toilet_bowl = nil
 
       fetch_league_data unless no_data
     end
@@ -33,8 +34,9 @@ module SleeperApi
     end
 
     def reigning_champ
-      puts @league_data&.dig("metadata", "latest_league_winner_roster_id").to_i
-      rosters(roster_id: @league_data&.dig("metadata", "latest_league_winner_roster_id").to_i)
+      roster_id = @league_data&.dig("metadata", "latest_league_winner_roster_id").to_i
+      return nil unless roster_id
+      rosters(roster_id: roster_id)
     end
 
     def league_rosters
@@ -56,9 +58,107 @@ module SleeperApi
       fetch_rosters unless @league_rosters
       fetch_users unless @league_users
 
-      rosters = roster_id ? @league_rosters.select { |roster| roster["roster_id"] == roster_id } : @league_rosters
-  
-      return rosters.find { |roster| roster["owner_id"] == user_id } if user_id
+      format_rosters(roster_id: roster_id, user_id: user_id)
+    end
+
+    def matchups_by_week(week: nil)
+      raise ArgumentError, "Week must be between 1 and 17" unless (@weeks).include?(week)
+
+      fetch_matchups([week]) unless @matchups&.key?(week)
+      format_matchups(week)
+    end
+
+    def users
+      fetch_users unless @fetch_users
+      format_users
+    end
+
+    def transactions(week: nil)
+      raise ArgumentError, "Week must be between 1 and 17" unless (@weeks).include?(week)
+
+      fetch_transactions([week]) unless @transactions&.key?(week)
+      format_transactions(week)
+    end
+
+    def playoff_bracket
+      fetch_playoff_bracket unless @playoff_bracket
+      @playoff_bracket
+    end
+
+    def toilet_bowl
+      fetch_toilet_bowl unless @toilet_bowl
+      @toilet_bowl
+    end
+
+
+    private
+
+    def fetch_league_data
+      @league_data ||= @client.get_league(@league_id)
+    end
+
+    def fetch_rosters
+      @league_rosters ||= @client.get_league_rosters(@league_id)
+    end
+
+    def fetch_users
+      @league_users ||= @client.get_league_users(@league_id)
+    end
+
+    def fetch_matchups(weeks = @weeks)
+      @matchups ||= {}
+      weeks.each do |week|
+        next if @matchups[week]
+        @matchups[week] = @client.get_league_matchups(@league_id, week)
+      end
+    end
+
+    def fetch_transactions(weeks = @weeks)
+      @transactions ||= {}
+      weeks.each do |week|
+        next if @transactions[week]
+        @transactions[week] = @client.get_transactions(@league_id, week)
+      end
+    end
+
+    def fetch_playoff_bracket
+      return @playoff_bracket if @playoff_bracket
+      response = @client.get_playoff_bracket(@league_id)
+      @playoff_bracket = response.parsed_response.map do |matchup|
+        deep_symbolize_keys(matchup).merge(
+          team1_owner: users.find { |u| u[:user_id] == rosters(roster_id: matchup["t1"])&.first&.dig(:owner_id) }&.dig(:team_name),
+          team2_owner: users.find { |u| u[:user_id] == rosters(roster_id: matchup["t2"])&.first&.dig(:owner_id) }&.dig(:team_name),
+          winner_owner: matchup["w"] ? users.find { |u| u[:user_id] == rosters(roster_id: matchup["w"])&.first&.dig(:owner_id) }&.dig(:team_name) : nil,
+          loser_owner: matchup["l"] ? users.find { |u| u[:user_id] == rosters(roster_id: matchup["l"])&.first&.dig(:owner_id) }&.dig(:team_name) : nil
+        )
+      end
+      @playoff_bracket
+    end
+
+    def fetch_toilet_bowl
+      return @toilet_bowl if @toilet_bowl
+      response = @client.get_toilet_bowl(@league_id)
+      @toilet_bowl = response.parsed_response.map do |matchup|
+        deep_symbolize_keys(matchup).merge(
+          team1_owner: users.find { |u| u[:user_id] == rosters(roster_id: matchup["t1"])&.first&.dig(:owner_id) }&.dig(:team_name),
+          team2_owner: users.find { |u| u[:user_id] == rosters(roster_id: matchup["t2"])&.first&.dig(:owner_id) }&.dig(:team_name),
+          winner_owner: matchup["w"] ? users.find { |u| u[:user_id] == rosters(roster_id: matchup["w"])&.first&.dig(:owner_id) }&.dig(:team_name) : nil,
+          loser_owner: matchup["l"] ? users.find { |u| u[:user_id] == rosters(roster_id: matchup["l"])&.first&.dig(:owner_id) }&.dig(:team_name) : nil
+        )
+      end
+      @toilet_bowl
+    end
+
+    def format_rosters(roster_id: nil, user_id: nil)
+      rosters = @league_rosters
+
+      if roster_id
+        rosters = rosters.select { |roster| roster["roster_id"] == roster_id }
+      end
+
+      if user_id
+        rosters = rosters.select { |roster| roster["owner_id"] == user_id }
+      end
 
       rosters.map do |roster|
         user = @league_users.find { |user| user["user_id"] == roster["owner_id"] }
@@ -79,15 +179,19 @@ module SleeperApi
           losses: roster["settings"]&.dig("losses"),
           remaining_faab: (@league_data&.dig("settings", "waiver_budget") || 0) - (roster["settings"]&.dig("waiver_budget_used") || 0),
           faab_used: roster["settings"]&.dig("waiver_budget_used"),
-          waiver_position: roster["settings"]&.dig("waiver_position")
+          waiver_position: roster["settings"]&.dig("waiver_position"),
+          streak: roster["metadata"]&.dig("streak"),
+          co_owners: roster["co_owner"],
+          keepers: roster["keepers"],
+          players_map: roster["player_map"],
+          players: roster["players"],
+          metadata: roster["metadata"].is_a?(Hash) ? roster["metadata"].transform_keys(&:to_sym) : roster["metadata"],
+          settings: roster["settings"].is_a?(Hash) ? roster["settings"].transform_keys(&:to_sym) : roster["settings"]
         }
       end
     end
 
-    def matchups_by_week(week)
-      raise ArgumentError, "Week must be between 1 and 17" unless (@weeks).include?(week)
-
-      fetch_matchups([week]) unless @matchups&.key?(week)
+    def format_matchups(week)
       week_matchups = @matchups[week] || []
       return [] if week_matchups.empty?
 
@@ -117,9 +221,7 @@ module SleeperApi
       end
     end
 
-    def users
-      fetch_users unless @fetch_users
-
+    def format_users
       @league_users.map do |user|
         {
           user_id: user["user_id"],
@@ -129,16 +231,13 @@ module SleeperApi
           team_name: user["metadata"]["team_name"],
           commissioner: user["is_owner"],
           is_bot: user["is_bot"],
-          metadata: user["metadata"].transform_keys(&:to_sym),
+          metadata: user["metadata"].is_a?(Hash) ? user["metadata"].transform_keys(&:to_sym) : user["metadata"],
           settings: user["settings"].is_a?(Hash) ? user["settings"].transform_keys(&:to_sym) : user["settings"]
         }
       end
     end
 
-    def transactions(week)
-      raise ArgumentError, "Week must be between 1 and 17" unless (@weeks).include?(week)
-      
-      fetch_transactions([week]) unless @transactions&.key?(week)
+    def format_transactions(week)
       (@transactions[week] || []).map do |transaction|
         draft_picks = transaction["draft_picks"]&.map do |pick|
           {
@@ -171,53 +270,9 @@ module SleeperApi
           waiver_order: transaction["settings"]&.dig("seq"),
           draft_picks: draft_picks,
           waiver_budget: waiver_budget,
-          metadata: transaction["metadata"].is_a(Hash) ? transaction["metadata"].transform_keys(&:to_sym) : transaction["metadata"],
+          metadata: transaction["metadata"].is_a?(Hash) ? transaction["metadata"].transform_keys(&:to_sym) : transaction["metadata"],
           created_by_user_id: transaction["creator"]
         }
-      end
-    end
-
-    private
-
-    def fetch_league_data
-      @league_data ||= @client.get_league(@league_id)
-    end
-
-    def fetch_rosters
-      @league_rosters ||= @client.get_league_rosters(@league_id)
-    end
-
-    def fetch_users
-      @league_users ||= @client.get_league_users(@league_id)
-    end
-
-    def fetch_matchups(weeks = @weeks)
-      @matchups ||= {}
-      weeks.each do |week|
-        next if @matchups[week]
-        @matchups[week] = @client.get_league_matchups(@league_id, week)
-      end
-    end
-
-    def fetch_transactions(weeks = @weeks)
-      @transactions ||= {}
-      weeks.each do |week|
-        next if @transactions[week]
-        @transactions[week] = @client.get_transactions(@league_id, week)
-      end
-    end
-
-    def deep_symbolize_keys(obj)
-      case obj
-      when Hash
-        obj.each_with_object({}) do |(k, v), result|
-          key = k.is_a?(String) ? k.to_sym : k
-          result[key] = deep_symbolize_keys(v)
-        end
-      when Array
-        obj.map { |e| deep_symbolize_keys(e) }
-      else
-        obj
       end
     end
   end

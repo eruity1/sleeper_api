@@ -86,7 +86,7 @@ module SleeperApi
       make_request("/state/#{sport}")
     end
 
-    def trending_players(sport = "nfl", type = "add", lookback_hours = 24, limit = 25)
+    def trending_players(sport = "nfl", type: "add", lookback_hours: 24, limit: 25)
       make_request("/players/#{sport}/trending/#{type}?lookback_hours=#{lookback_hours}&limit=#{limit}")
     end
 

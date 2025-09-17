@@ -34,8 +34,10 @@ module SleeperApi
     end
 
     def reigning_champ
-      roster_id = @league_data&.dig("metadata", "latest_league_winner_roster_id").to_i
+      roster_id = @league_data&.dig("metadata", "latest_league_winner_roster_id")
       return nil unless roster_id
+
+      roster_id = roster_id.to_i
       rosters(roster_id: roster_id)
     end
 

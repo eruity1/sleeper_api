@@ -7,6 +7,8 @@ module SleeperApi
     attr_reader :draft_id, :picks, :traded_picks
 
     def initialize(draft_id, client)
+      raise ArgumentError, "draft_id must be a non-empty string" if draft_id.to_s.empty?
+
       @draft_id = draft_id
       @client = client
       @draft_data = nil

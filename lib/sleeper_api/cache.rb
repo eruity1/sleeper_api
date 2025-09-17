@@ -1,9 +1,9 @@
-require 'json'
+require "json"
 
 module SleeperApi
   class Cache
     def initialize
-      @file_path = 'players_cache.json'
+      @file_path = "players_cache.json"
       @ttl = 24 * 60 * 60
       @cache = nil
     end

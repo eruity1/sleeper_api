@@ -1,9 +1,10 @@
-require 'httparty'
-require 'json'
+require "httparty"
+require "json"
 
 module SleeperApi
   class Client
     include HTTParty
+
     base_uri "https://api.sleeper.app/v1"
 
     def initialize(config)
@@ -91,7 +92,7 @@ module SleeperApi
     end
 
     def get_players(sport = "nfl")
-      cache = SleeperApi::Cache.new()
+      cache = SleeperApi::Cache.new
       cached = cache.read
       return cached if cached
 

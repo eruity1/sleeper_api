@@ -101,8 +101,8 @@ RSpec.describe SleeperApi::Helpers do
     it "leaves non-hash/array values unchanged" do
       expect(helper.deep_symbolize_keys("string")).to eq("string")
       expect(helper.deep_symbolize_keys(42)).to eq(42)
-      expect(helper.deep_symbolize_keys(true)).to eq(true)
-      expect(helper.deep_symbolize_keys(nil)).to eq(nil)
+      expect(helper.deep_symbolize_keys(true)).to be(true)
+      expect(helper.deep_symbolize_keys(nil)).to be_nil
     end
   end
 

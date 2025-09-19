@@ -37,13 +37,11 @@ RSpec.describe SleeperApi::Configuration do
 
     context "with invalid timeout values" do
       it "raises error for timeout too low" do
-        expect { config.timeout = 5 }.to raise_error(SleeperApi::Error, 
-          "Timeout must be between 10 and 60 seconds")
+        expect { config.timeout = 5 }.to raise_error(SleeperApi::Error, "Timeout must be between 10 and 60 seconds")
       end
 
       it "raises error for timeout too high" do
-        expect { config.timeout = 120 }.to raise_error(SleeperApi::Error, 
-          "Timeout must be between 10 and 60 seconds")
+        expect { config.timeout = 120 }.to raise_error(SleeperApi::Error, "Timeout must be between 10 and 60 seconds")
       end
     end
   end
@@ -68,20 +66,18 @@ RSpec.describe SleeperApi::Configuration do
 
     context "with invalid retry values" do
       it "raises error for retries too low" do
-        expect { config.retries = -1 }.to raise_error(SleeperApi::Error, 
-          "Retries must be between 0 and 5")
+        expect { config.retries = -1 }.to raise_error(SleeperApi::Error, "Retries must be between 0 and 5")
       end
 
       it "raises error for retries too high" do
-        expect { config.retries = 10 }.to raise_error(SleeperApi::Error, 
-          "Retries must be between 0 and 5")
+        expect { config.retries = 10 }.to raise_error(SleeperApi::Error, "Retries must be between 0 and 5")
       end
     end
   end
 
   describe "#logger=" do
     it "accepts logger assignment" do
-      logger = Logger.new(STDOUT)
+      logger = Logger.new($stdout)
       config.logger = logger
       expect(config.logger).to eq(logger)
     end

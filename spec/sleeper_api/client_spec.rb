@@ -82,7 +82,7 @@ RSpec.describe SleeperApi::Client do
     describe "#get_user" do
       it "makes request to correct endpoint" do
         client.get_user("testuser")
-        
+
         expect(WebMock).to have_requested(:get, "#{base_url}/user/testuser")
       end
 
@@ -95,19 +95,19 @@ RSpec.describe SleeperApi::Client do
     describe "#get_league" do
       it "makes request to correct endpoint" do
         client.get_league("12345")
-        
+
         expect(WebMock).to have_requested(:get, "#{base_url}/league/12345")
       end
     end
 
     describe "#get_players" do
       before do
-        File.delete("players_cache.json") if File.exist?("players_cache.json")
+        FileUtils.rm_f("players_cache.json")
       end
 
       it "makes request to correct endpoint" do
         client.get_players
-        
+
         expect(WebMock).to have_requested(:get, "#{base_url}/players/nfl")
       end
 
@@ -119,7 +119,7 @@ RSpec.describe SleeperApi::Client do
 
     describe "#get_player_by_id" do
       let(:players_data) { { "123" => { "name" => "Test Player" } } }
-      
+
       before do
         allow(client).to receive(:get_players).and_return(players_data)
       end
@@ -146,8 +146,7 @@ RSpec.describe SleeperApi::Client do
       end
 
       it "raises SleeperApi::Error" do
-        expect { client.get_user("nonexistent") }.to raise_error(SleeperApi::Error, 
-          "Failed to fetch /user/nonexistent: 404")
+        expect { client.get_user("nonexistent") }.to raise_error(SleeperApi::Error, "Failed to fetch /user/nonexistent: 404")
       end
     end
 
@@ -164,13 +163,12 @@ RSpec.describe SleeperApi::Client do
 
       it "retries the request" do
         expect { client.get_user("testuser") }.to raise_error(SleeperApi::Error)
-        
+
         expect(WebMock).to have_requested(:get, "#{base_url}/user/testuser").times(2)
       end
 
       it "raises error after exhausting retries" do
-        expect { client.get_user("testuser") }.to raise_error(SleeperApi::Error, 
-          "Request timed out after 2 retries")
+        expect { client.get_user("testuser") }.to raise_error(SleeperApi::Error, "Request timed out after 2 retries")
       end
     end
   end

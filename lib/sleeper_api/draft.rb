@@ -1,10 +1,13 @@
+# frozen_string_literal: true
+
 module SleeperApi
   class Draft
     include Helpers
 
-    ATTRIBUTES = %w[draft_id created creators draft_order last_message_id last_message_time last_picked league_id settings season season_type metadata slot_to_roster_id sport start_time status type].freeze
+    ATTRIBUTES = %w[draft_id created creators draft_order last_message_id last_message_time last_picked league_id
+                    settings season season_type metadata slot_to_roster_id sport start_time status type].freeze
 
-    attr_reader :draft_id, :picks, :traded_picks
+    attr_reader :draft_id
 
     def initialize(draft_id, client)
       raise ArgumentError, "draft_id must be a non-empty string" if draft_id.to_s.empty?
@@ -49,17 +52,20 @@ module SleeperApi
       fetch_picks unless @picks
       pick = @picks.find { |pick| pick[:player_id] == player_id }
       return nil unless pick
+
       league_users = league.users
       league_users.find { |user| user[:user_id] == pick[:picked_by] }
     end
 
     def next_pick
       return nil if status == "complete"
-      last_pick_no = picks.map { |p| p[:pick_no] }.max || 0
+
+      teams_count = settings["teams"]
+      last_pick_no = picks.map { |pick| pick[:pick_no] }.max || 0
       {
         pick_no: last_pick_no + 1,
-        round: ((last_pick_no) / (settings["teams"] || 12) + 1).to_i,
-        draft_slot: ((last_pick_no) % (settings["teams"] || 12) + 1)
+        round: ((last_pick_no / (teams_count || 12)) + 1).to_i,
+        draft_slot: ((last_pick_no % (teams_count || 12)) + 1)
       }
     end
 

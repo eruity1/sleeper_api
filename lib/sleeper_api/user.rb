@@ -1,10 +1,14 @@
+# frozen_string_literal: true
+
 module SleeperApi
   class User
     include Helpers
 
-    ATTRIBUTES = %w[username user_id display_name avatar email cookies created currencies data_updated deleted is_bot metadata notifications pending phone real_name solicitable summoner_name summoner_region token verification].freeze
+    ATTRIBUTES = %w[username user_id display_name avatar email cookies created currencies data_updated deleted is_bot
+                    metadata notifications pending phone real_name solicitable summoner_name summoner_region token
+                    verification].freeze
 
-    attr_reader :identifier, :leagues, :drafts
+    attr_reader :identifier
 
     def initialize(identifier, client)
       raise ArgumentError, "identifier must be a non-empty string" if identifier.to_s.empty?
@@ -59,7 +63,9 @@ module SleeperApi
     end
 
     def fetch_leagues(season)
-      @leagues ||= (@client.get_user_leagues(@user_id, season: season) || []).map { |league| deep_symbolize_keys(league) }
+      @leagues ||= (@client.get_user_leagues(@user_id, season: season) || []).map do |league|
+        deep_symbolize_keys(league)
+      end
     end
 
     def fetch_drafts(season)

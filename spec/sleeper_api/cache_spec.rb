@@ -5,12 +5,12 @@ RSpec.describe SleeperApi::Cache do
   let(:test_data) { { "player1" => { "name" => "Test Player" } } }
   let(:cache_file) { "players_cache.json" }
 
-  before(:each) do
-    File.delete(cache_file) if File.exist?(cache_file)
+  before do
+    FileUtils.rm_f(cache_file)
   end
 
-  after(:each) do
-    File.delete(cache_file) if File.exist?(cache_file)
+  after do
+    FileUtils.rm_f(cache_file)
   end
 
   describe "#initialize" do

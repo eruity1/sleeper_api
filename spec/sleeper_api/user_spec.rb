@@ -56,9 +56,11 @@ RSpec.describe SleeperApi::User do
   end
 
   before do
-    allow(client).to receive(:get_user).and_return(user_data)
-    allow(client).to receive(:get_user_leagues).and_return(leagues_data)
-    allow(client).to receive(:get_user_drafts).and_return(drafts_data)
+    allow(client).to receive_messages(
+      get_user: user_data,
+      get_user_leagues: leagues_data,
+      get_user_drafts: drafts_data
+    )
   end
 
   describe "#initialize" do
@@ -69,7 +71,7 @@ RSpec.describe SleeperApi::User do
     end
 
     it "fetches user data on initialization" do
-      user = described_class.new(identifier, client)
+      described_class.new(identifier, client)
       expect(client).to have_received(:get_user)
     end
 
@@ -152,32 +154,32 @@ RSpec.describe SleeperApi::User do
   end
 
   describe "#rosters" do
-  let(:user) { described_class.new(identifier, client) }
-  let(:mock_league) { instance_double(SleeperApi::League) }
+    let(:user) { described_class.new(identifier, client) }
+    let(:mock_league) { instance_double(SleeperApi::League) }
 
-  before do
-    allow(SleeperApi::League).to receive(:new).and_return(mock_league)
-    allow(mock_league).to receive(:rosters).and_return(rosters_data)
-  end    
+    before do
+      allow(SleeperApi::League).to receive(:new).and_return(mock_league)
+      allow(mock_league).to receive(:rosters).and_return(rosters_data)
+    end
 
-  it "returns user rosters from all leagues" do
-    expect(user.rosters.length).to eq(2)
+    it "returns user rosters from all leagues" do
+      expect(user.rosters.length).to eq(2)
+    end
+
+    it "passes user_id to league rosters method" do
+      user.rosters
+      expect(mock_league).to have_received(:rosters).with(user_id: "user123").twice
+    end
+
+    it "accepts custom season parameter" do
+      user.rosters(2023)
+      expect(client).to have_received(:get_user_leagues).with("user123", season: 2023)
+    end
+
+    it "raises error for invalid season" do
+      expect { user.rosters("invalid") }.to raise_error(ArgumentError, "season must be a valid year")
+    end
   end
-
-  it "passes user_id to league rosters method" do
-    user.rosters
-    expect(mock_league).to have_received(:rosters).with(user_id: "user123").twice
-  end
-
-  it "accepts custom season parameter" do
-    user.rosters(2023)
-    expect(client).to have_received(:get_user_leagues).with("user123", season: 2023)
-  end
-
-  it "raises error for invalid season" do
-    expect { user.rosters("invalid") }.to raise_error(ArgumentError, "season must be a valid year")
-  end
-end
 
   describe "#drafts" do
     let(:user) { described_class.new(identifier, client) }

@@ -8,7 +8,7 @@ require_relative "sleeper_api/draft"
 
 module SleeperApi
   class Error < StandardError; end
-  
+
   class << self
     attr_writer :configuration
   end
@@ -27,7 +27,8 @@ module SleeperApi
   end
 
   class Configuration
-    attr_accessor :timeout, :retries, :logger
+    attr_accessor :logger
+    attr_reader :timeout, :retries
 
     MIN_TIMEOUT = 10
     MAX_TIMEOUT = 60
@@ -41,23 +42,19 @@ module SleeperApi
     end
 
     def timeout=(value)
-      if value >= MIN_TIMEOUT && value <= MAX_TIMEOUT
-        @timeout = value
-      else
+      unless value.between?(MIN_TIMEOUT, MAX_TIMEOUT)
         raise SleeperApi::Error, "Timeout must be between #{MIN_TIMEOUT} and #{MAX_TIMEOUT} seconds"
       end
+
+      @timeout = value
     end
 
     def retries=(value)
-      if value >= MIN_RETRIES && value <= MAX_RETRIES
-        @retries = value
-      else
+      unless value.between?(MIN_RETRIES, MAX_RETRIES)
         raise SleeperApi::Error, "Retries must be between #{MIN_RETRIES} and #{MAX_RETRIES}"
       end
-    end
 
-    def logger=(value)
-      @logger = value
+      @retries = value
     end
   end
 end

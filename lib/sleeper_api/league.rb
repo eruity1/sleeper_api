@@ -1,10 +1,16 @@
+# frozen_string_literal: true
+
 module SleeperApi
   class League
     include Helpers
 
-    ATTRIBUTES = %w[name league_id total_rosters status sport settings season_type season scoring_settings roster_positions previous_league_id draft_id bracket_id bracket_overrides_id loser_bracket_id loser_bracket_overrides_id group_id avatar company_id shard last_message_id last_author_avatar last_author_display_name last_author_id last_author_is_bot last_message_attachment last_message_text_map last_message_time last_pinned_message_id last_read_id metadata].freeze
+    ATTRIBUTES = %w[name league_id total_rosters status sport settings season_type season scoring_settings
+                    roster_positions previous_league_id draft_id bracket_id bracket_overrides_id loser_bracket_id
+                    loser_bracket_overrides_id group_id avatar company_id shard last_message_id last_author_avatar
+                    last_author_display_name last_author_id last_author_is_bot last_message_attachment
+                    last_message_text_map last_message_time last_pinned_message_id last_read_id metadata].freeze
 
-    attr_reader :league_id, :weeks, :league_rosters, :league_users, :matchups, :transactions, :playoff_bracket, :toilet_bowl
+    attr_reader :league_id, :weeks
 
     def initialize(league_id, client, no_data: false)
       raise ArgumentError, "league_id must be a non-empty string" if league_id.to_s.empty?
@@ -64,7 +70,7 @@ module SleeperApi
     end
 
     def matchups_by_week(week: nil)
-      raise ArgumentError, "Week must be between 1 and 17" unless (@weeks).include?(week)
+      raise ArgumentError, "Week must be between 1 and 17" unless @weeks.include?(week)
 
       fetch_matchups([week]) unless @matchups&.key?(week)
       format_matchups(week)
@@ -76,7 +82,7 @@ module SleeperApi
     end
 
     def transactions(week: nil)
-      raise ArgumentError, "Week must be between 1 and 17" unless (@weeks).include?(week)
+      raise ArgumentError, "Week must be between 1 and 17" unless @weeks.include?(week)
 
       fetch_transactions([week]) unless @transactions&.key?(week)
       format_transactions(week)
@@ -91,7 +97,6 @@ module SleeperApi
       fetch_toilet_bowl unless @toilet_bowl
       @toilet_bowl
     end
-
 
     private
 
@@ -111,6 +116,7 @@ module SleeperApi
       @matchups ||= {}
       weeks.each do |week|
         next if @matchups[week]
+
         @matchups[week] = @client.get_league_matchups(@league_id, week)
       end
     end
@@ -119,19 +125,33 @@ module SleeperApi
       @transactions ||= {}
       weeks.each do |week|
         next if @transactions[week]
+
         @transactions[week] = @client.get_transactions(@league_id, week)
       end
     end
 
     def fetch_playoff_bracket
       return @playoff_bracket if @playoff_bracket
+
       response = @client.get_playoff_bracket(@league_id)
       @playoff_bracket = response.parsed_response.map do |matchup|
         deep_symbolize_keys(matchup).merge(
-          team1_owner: users.find { |u| u[:user_id] == rosters(roster_id: matchup["t1"])&.first&.dig(:owner_id) }&.dig(:team_name),
-          team2_owner: users.find { |u| u[:user_id] == rosters(roster_id: matchup["t2"])&.first&.dig(:owner_id) }&.dig(:team_name),
-          winner_owner: matchup["w"] ? users.find { |u| u[:user_id] == rosters(roster_id: matchup["w"])&.first&.dig(:owner_id) }&.dig(:team_name) : nil,
-          loser_owner: matchup["l"] ? users.find { |u| u[:user_id] == rosters(roster_id: matchup["l"])&.first&.dig(:owner_id) }&.dig(:team_name) : nil
+          team1_owner: users.find do |user|
+            user[:user_id] == rosters(roster_id: matchup["t1"])&.first&.dig(:owner_id)
+          end&.dig(:team_name),
+          team2_owner: users.find do |user|
+            user[:user_id] == rosters(roster_id: matchup["t2"])&.first&.dig(:owner_id)
+          end&.dig(:team_name),
+          winner_owner: if matchup["w"]
+                          users.find do |user|
+                            user[:user_id] == rosters(roster_id: matchup["w"])&.first&.dig(:owner_id)
+                          end&.dig(:team_name)
+                        end,
+          loser_owner: if matchup["l"]
+                         users.find do |user|
+                           user[:user_id] == rosters(roster_id: matchup["l"])&.first&.dig(:owner_id)
+                         end&.dig(:team_name)
+                       end
         )
       end
       @playoff_bracket
@@ -139,13 +159,26 @@ module SleeperApi
 
     def fetch_toilet_bowl
       return @toilet_bowl if @toilet_bowl
+
       response = @client.get_toilet_bowl(@league_id)
       @toilet_bowl = response.parsed_response.map do |matchup|
         deep_symbolize_keys(matchup).merge(
-          team1_owner: users.find { |u| u[:user_id] == rosters(roster_id: matchup["t1"])&.first&.dig(:owner_id) }&.dig(:team_name),
-          team2_owner: users.find { |u| u[:user_id] == rosters(roster_id: matchup["t2"])&.first&.dig(:owner_id) }&.dig(:team_name),
-          winner_owner: matchup["w"] ? users.find { |u| u[:user_id] == rosters(roster_id: matchup["w"])&.first&.dig(:owner_id) }&.dig(:team_name) : nil,
-          loser_owner: matchup["l"] ? users.find { |u| u[:user_id] == rosters(roster_id: matchup["l"])&.first&.dig(:owner_id) }&.dig(:team_name) : nil
+          team1_owner: users.find do |u|
+            u[:user_id] == rosters(roster_id: matchup["t1"])&.first&.dig(:owner_id)
+          end&.dig(:team_name),
+          team2_owner: users.find do |u|
+            u[:user_id] == rosters(roster_id: matchup["t2"])&.first&.dig(:owner_id)
+          end&.dig(:team_name),
+          winner_owner: if matchup["w"]
+                          users.find do |u|
+                            u[:user_id] == rosters(roster_id: matchup["w"])&.first&.dig(:owner_id)
+                          end&.dig(:team_name)
+                        end,
+          loser_owner: if matchup["l"]
+                         users.find do |u|
+                           u[:user_id] == rosters(roster_id: matchup["l"])&.first&.dig(:owner_id)
+                         end&.dig(:team_name)
+                       end
         )
       end
       @toilet_bowl
@@ -154,16 +187,15 @@ module SleeperApi
     def format_rosters(roster_id: nil, user_id: nil)
       rosters = @league_rosters
 
-      if roster_id
-        rosters = rosters.select { |roster| roster["roster_id"] == roster_id }
-      end
+      rosters = rosters.select { |roster| roster["roster_id"] == roster_id } if roster_id
 
-      if user_id
-        rosters = rosters.select { |roster| roster["owner_id"] == user_id }
-      end
+      rosters = rosters.select { |roster| roster["owner_id"] == user_id } if user_id
 
       rosters.map do |roster|
         user = @league_users.find { |user| user["user_id"] == roster["owner_id"] }
+        roster_metadata = roster["metadata"]
+        roster_settings = roster["settings"]
+
         {
           roster_id: roster["roster_id"],
           league_id: roster["league_id"],
@@ -175,20 +207,21 @@ module SleeperApi
           injured_reserve: roster["reserve"] || [],
           taxi: roster["taxi"] || [],
           bench: (roster["players"] || []) - (roster["starters"] || []) - (roster["reserve"] || []) - (roster["taxi"] || []),
-          total_points: roster["settings"]&.dig("fpts"),
-          wins: roster["settings"]&.dig("wins"),
-          ties: roster["settings"]&.dig("ties"),
-          losses: roster["settings"]&.dig("losses"),
-          remaining_faab: (@league_data&.dig("settings", "waiver_budget") || 0) - (roster["settings"]&.dig("waiver_budget_used") || 0),
-          faab_used: roster["settings"]&.dig("waiver_budget_used"),
-          waiver_position: roster["settings"]&.dig("waiver_position"),
-          streak: roster["metadata"]&.dig("streak"),
+          total_points: roster_settings&.dig("fpts"),
+          wins: roster_settings&.dig("wins"),
+          ties: roster_settings&.dig("ties"),
+          losses: roster_settings&.dig("losses"),
+          remaining_faab: (@league_data&.dig("settings",
+                                             "waiver_budget") || 0) - (roster_settings&.dig("waiver_budget_used") || 0),
+          faab_used: roster_settings&.dig("waiver_budget_used"),
+          waiver_position: roster_settings&.dig("waiver_position"),
+          streak: roster_metadata&.dig("streak"),
           co_owners: roster["co_owner"],
           keepers: roster["keepers"],
           players_map: roster["player_map"],
           players: roster["players"],
-          metadata: roster["metadata"].is_a?(Hash) ? roster["metadata"].transform_keys(&:to_sym) : roster["metadata"],
-          settings: roster["settings"].is_a?(Hash) ? roster["settings"].transform_keys(&:to_sym) : roster["settings"]
+          metadata: roster_metadata.is_a?(Hash) ? roster_metadata.transform_keys(&:to_sym) : roster_metadata,
+          settings: roster_settings.is_a?(Hash) ? roster_settings.transform_keys(&:to_sym) : roster_settings
         }
       end
     end
@@ -203,21 +236,23 @@ module SleeperApi
         {
           matchup_id: matchup_id,
           rosters: matchup_entries.map do |roster|
-            bench = roster["players"] - roster["starters"]
-            { 
-              roster_id: roster["roster_id"], 
+            starters = roster["starters"]
+
+            bench = roster["players"] - starters
+            {
+              roster_id: roster["roster_id"],
               points: roster["points"],
               custom_points: roster["custom_points"],
               total_points: roster["points"] + (roster["custom_points"] || 0),
-              starters: roster["starters"],
+              starters: starters,
               bench: bench,
-              starter_points: (roster["starters"] || []).map do |starter_id|
+              starter_points: (starters || []).map do |starter_id|
                 { starter_id => roster["players_points"]&.dig(starter_id) || 0 }
               end,
               bench_points: bench.map do |bench_player_id|
                 { bench_player_id => roster["players_points"]&.dig(bench_player_id) || 0 }
               end
-            } 
+            }
           end
         }
       end
@@ -225,16 +260,19 @@ module SleeperApi
 
     def format_users
       (@league_users || []).map do |user|
+        user_settings = user["settings"]
+        user_metadata = user["metadata"]
+
         {
           user_id: user["user_id"],
           username: user["username"],
           display_name: user["display_name"],
           avatar_id: user["avatar"],
-          team_name: user["metadata"]["team_name"],
+          team_name: user_metadata["team_name"],
           commissioner: user["is_owner"],
           is_bot: user["is_bot"],
-          metadata: user["metadata"].is_a?(Hash) ? user["metadata"].transform_keys(&:to_sym) : user["metadata"],
-          settings: user["settings"].is_a?(Hash) ? user["settings"].transform_keys(&:to_sym) : user["settings"]
+          metadata: user_metadata.is_a?(Hash) ? user_metadata.transform_keys(&:to_sym) : user_metadata,
+          settings: user_settings.is_a?(Hash) ? user_settings.transform_keys(&:to_sym) : user_settings
         }
       end
     end
@@ -257,7 +295,9 @@ module SleeperApi
             sending_roster: budget["sender"]
           }
         end || []
-        
+
+        transaction_metadata = transaction["metadata"]
+
         {
           week: week,
           transaction_id: transaction["transaction_id"],
@@ -266,13 +306,17 @@ module SleeperApi
           created_at: transaction["created"],
           status_updated_at: transaction["status_updated"],
           roster_ids: transaction["roster_ids"] || [],
-          adds: transaction["adds"]&.map { |player_id, roster_id| { player_id: player_id, roster_id: roster_id } } || [],
-          drops: transaction["drops"]&.map { |player_id, roster_id| { player_id: player_id, roster_id: roster_id } } || [],
+          adds: transaction["adds"]&.map do |player_id, roster_id|
+            { player_id: player_id, roster_id: roster_id }
+          end || [],
+          drops: transaction["drops"]&.map do |player_id, roster_id|
+            { player_id: player_id, roster_id: roster_id }
+          end || [],
           waiver_bid: transaction["settings"]&.dig("waiver_bid"),
           waiver_order: transaction["settings"]&.dig("seq"),
           draft_picks: draft_picks,
           waiver_budget: waiver_budget,
-          metadata: transaction["metadata"].is_a?(Hash) ? transaction["metadata"].transform_keys(&:to_sym) : transaction["metadata"],
+          metadata: transaction_metadata.is_a?(Hash) ? transaction_metadata.transform_keys(&:to_sym) : transaction_metadata,
           created_by_user_id: transaction["creator"]
         }
       end

@@ -11,7 +11,7 @@ RSpec.describe SleeperApi do
       described_class.configure do |config|
         config.timeout = 45
       end
-      
+
       expect(described_class.configuration.timeout).to eq(45)
     end
 
@@ -19,16 +19,16 @@ RSpec.describe SleeperApi do
       described_class.configure do |config|
         config.retries = 2
       end
-      
+
       expect(described_class.configuration.retries).to eq(2)
     end
 
     it "allows configuration of logger" do
-      logger = Logger.new(STDOUT)
+      logger = Logger.new($stdout)
       described_class.configure do |config|
         config.logger = logger
       end
-      
+
       expect(described_class.configuration.logger).to eq(logger)
     end
   end
@@ -46,7 +46,7 @@ RSpec.describe SleeperApi do
       described_class.configure do |config|
         config.timeout = 45
       end
-      
+
       config = described_class.configuration
       expect(config.timeout).to eq(45)
     end
@@ -67,7 +67,7 @@ RSpec.describe SleeperApi do
       described_class.configure do |config|
         config.timeout = 45
       end
-      
+
       client = described_class.client
       expect(client.instance_variable_get(:@config).timeout).to eq(45)
     end

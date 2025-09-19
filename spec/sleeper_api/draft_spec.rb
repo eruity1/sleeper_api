@@ -50,9 +50,11 @@ RSpec.describe SleeperApi::Draft do
   end
 
   before do
-    allow(client).to receive(:get_draft).and_return(draft_data)
-    allow(client).to receive(:get_draft_picks).and_return(picks_data)
-    allow(client).to receive(:get_draft_traded_picks).and_return(traded_picks_data)
+    allow(client).to receive_messages(
+      get_draft: draft_data,
+      get_draft_picks: picks_data,
+      get_draft_traded_picks: traded_picks_data
+    )
   end
 
   describe "#initialize" do
@@ -62,7 +64,7 @@ RSpec.describe SleeperApi::Draft do
     end
 
     it "fetches draft data on initialization" do
-      draft = described_class.new(draft_id, client)
+      described_class.new(draft_id, client)
       expect(client).to have_received(:get_draft)
     end
 
@@ -179,9 +181,9 @@ RSpec.describe SleeperApi::Draft do
     before do
       allow(client).to receive(:league).and_return(mock_league)
       allow(mock_league).to receive(:users).and_return([
-        { user_id: "user1", display_name: "User One" },
-        { user_id: "user2", display_name: "User Two" }
-      ])
+                                                         { user_id: "user1", display_name: "User One" },
+                                                         { user_id: "user2", display_name: "User Two" }
+                                                       ])
     end
 
     it "returns the user who picked a player" do

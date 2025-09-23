@@ -1,5 +1,7 @@
 # SleeperApi
 
+[![Gem Version](https://badge.fury.io/rb/sleeper_api.svg)](https://badge.fury.io/rb/sleeper_api)
+
 A comprehensive Ruby gem for interacting with [Sleeper's fantasy football API](https://docs.sleeper.com/). Built with performance, reliability, and developer experience in mind.
 
 ## Features

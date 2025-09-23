@@ -9,6 +9,8 @@ module SleeperApi
 
     def initialize(config)
       @config = config
+      @players_cache = nil
+      @cache_timestamp = nil
     end
 
     def league(league_id)
@@ -92,14 +94,13 @@ module SleeperApi
     end
 
     def get_players(sport = "nfl")
-      cache = SleeperApi::Cache.new
-      cached = cache.read
-      return cached if cached
+      return @players_cache if @players_cache && @cache_timestamp && (Time.now - @cache_timestamp) < (3600 * 24)
 
       response = make_request("/players/#{sport}")
-      parsed = response.parsed_response
-      cache.write(parsed)
-      parsed
+      @players_cache = response.parsed_response
+      @cache_timestamp = Time.now
+
+      @players_cache
     end
 
     def get_player_by_id(player_id, sport = "nfl")

@@ -112,6 +112,3 @@ Security/Eval:
 # Bundler
 Bundler/GemComment:
   Enabled: false
-
-Bundler/OrderedGems:
-  Enabled: false

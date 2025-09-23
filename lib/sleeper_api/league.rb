@@ -4,6 +4,7 @@ module SleeperApi
   class League
     include Helpers
 
+    # League attributes from the API.
     ATTRIBUTES = %w[name league_id total_rosters status sport settings season_type season scoring_settings
                     roster_positions previous_league_id draft_id bracket_id bracket_overrides_id loser_bracket_id
                     loser_bracket_overrides_id group_id avatar company_id shard last_message_id last_author_avatar
@@ -12,6 +13,10 @@ module SleeperApi
 
     attr_reader :league_id, :weeks
 
+    # @param league_id [String] League identifier
+    # @param client [SleeperApi::Client] HTTP client instance
+    # @param no_data [Boolean] Skip initial data fetch (default: false)
+    # @raise [ArgumentError] If league_id is empty
     def initialize(league_id, client, no_data: false)
       raise ArgumentError, "league_id must be a non-empty string" if league_id.to_s.empty?
 
@@ -29,16 +34,23 @@ module SleeperApi
       fetch_league_data unless no_data
     end
 
+    # Dynamically define attribute readers for league data.
     ATTRIBUTES.each do |attr|
       define_method(attr) do
         @league_data[attr]
       end
     end
 
+    # Generate avatar URL from ID.
+    #
+    # @return [String, nil] Full avatar URL or nil if no avatar
     def avatar_url
       avatar ? "https://sleepercdn.com/avatars/#{avatar}" : nil
     end
 
+    # Get the reigning champion's roster.
+    #
+    # @return [Hash, nil] Formatted roster data or nil if no champion data
     def reigning_champ
       roster_id = @league_data&.dig("metadata", "latest_league_winner_roster_id")
       return nil unless roster_id
@@ -47,21 +59,43 @@ module SleeperApi
       rosters(roster_id: roster_id)
     end
 
+    # Get all league users (raw data).
+    #
+    # @return [Array<Hash>] Raw user data from API
     def league_rosters
       fetch_rosters unless @league_rosters
       @league_rosters
     end
 
+    # Get all matchups across all weeks.
+    #
+    # @return [Hash{Integer => Array<Hash>}] Week number to matchup data
     def league_users
       fetch_users unless @league_users
       @league_users
     end
 
+    # Get all matchups across all weeks.
+    #
+    # @return [Hash{Integer => Array<Hash>}] Week number to matchup data
     def matchups
       fetch_matchups unless @matchups&.keys&.sort == @weeks.to_a.sort
       @matchups
     end
 
+    # Get formatted rosters with team names, records, and player lists.
+    #
+    # @param roster_id [Integer, nil] Filter by specific roster
+    # @param user_id [String, nil] Filter by user owner
+    # @return [Array<Hash>] Formatted roster objects
+    #
+    # @example Get all rosters
+    #   rosters = league.rosters
+    #   roster = rosters.first
+    #   puts "#{roster[:owner_display_name]}: #{roster[:wins]}-#{roster[:losses]}"
+    #
+    # @example Get my roster
+    #   my_roster = league.rosters(user_id: my_user_id)
     def rosters(roster_id: nil, user_id: nil)
       fetch_rosters unless @league_rosters
       fetch_users unless @league_users
@@ -69,6 +103,19 @@ module SleeperApi
       format_rosters(roster_id: roster_id, user_id: user_id)
     end
 
+    # Get formatted matchups for a specific week.
+    #
+    # @param week [Integer] Week number (1-17)
+    # @return [Array<Hash>] Matchup data with scoring breakdown
+    # @raise [ArgumentError] If week is invalid
+    #
+    # @example
+    #   matchups = league.matchups_by_week(week: 5)
+    #   matchups.each do |matchup|
+    #     matchup[:rosters].each do |team|
+    #       puts "#{team[:points]} points from #{team[:starters].length} starters"
+    #     end
+    #   end
     def matchups_by_week(week: nil)
       raise ArgumentError, "Week must be between 1 and 17" unless @weeks.include?(week)
 
@@ -76,11 +123,32 @@ module SleeperApi
       format_matchups(week)
     end
 
+    # Get formatted league users with team names and commissioner status.
+    #
+    # @return [Array<Hash>] Formatted user objects
+    #
+    # @example
+    #   users = league.users
+    #   users.each do |user|
+    #     role = user[:commissioner] ? "(Commissioner)" : ""
+    #     puts "#{user[:display_name]} #{role}"
+    #   end
     def users
       fetch_users unless @fetch_users
       format_users
     end
 
+    # Get formatted transactions for a specific week.
+    #
+    # @param week [Integer] Week number (1-17)
+    # @return [Array<Hash>] Transaction data with adds/drops and draft picks
+    # @raise [ArgumentError] If week is invalid
+    #
+    # @example
+    #   transactions = league.transactions(week: 5)
+    #   transactions.each do |tx|
+    #     puts "#{tx[:type]}: #{tx[:adds]&.length || 0} adds, #{tx[:drops]&.length || 0} drops"
+    #   end
     def transactions(week: nil)
       raise ArgumentError, "Week must be between 1 and 17" unless @weeks.include?(week)
 
@@ -88,11 +156,17 @@ module SleeperApi
       format_transactions(week)
     end
 
+    # Get formatted playoff bracket with team names.
+    #
+    # @return [Array<Hash>] Bracket matchups with winner/loser team names
     def playoff_bracket
       fetch_playoff_bracket unless @playoff_bracket
       @playoff_bracket
     end
 
+    # Get formatted toilet bowl (losers bracket) with team names.
+    #
+    # @return [Array<Hash>] Bracket matchups with winner/loser team names
     def toilet_bowl
       fetch_toilet_bowl unless @toilet_bowl
       @toilet_bowl

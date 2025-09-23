@@ -217,4 +217,58 @@ RSpec.describe SleeperApi::User do
       expect(user.drafts).to eq([])
     end
   end
+
+  describe "#summary" do
+    let(:user) { described_class.new(identifier, client) }
+    let(:rosters_data) do
+      [
+        { wins: 8, losses: 4, ties: 0 },
+        { wins: 6, losses: 6, ties: 0 }
+      ]
+    end
+
+    before do
+      allow(user).to receive_messages(
+        leagues: leagues_data,
+        rosters: rosters_data
+      )
+    end
+
+    it "returns season summary statistics" do
+      result = user.summary(2024)
+
+      expect(result[:season]).to eq(2024)
+      expect(result[:total_leagues]).to eq(2)
+      expect(result[:total_wins]).to eq(14)
+      expect(result[:total_losses]).to eq(10)
+      expect(result[:total_ties]).to eq(0)
+    end
+
+    it "calculates winning records" do
+      result = user.summary
+      expect(result[:winning_record].length).to eq(1)
+    end
+
+    it "calculates average record" do
+      result = user.summary
+
+      expect(result[:avg_record][:wins]).to eq(7.0)
+      expect(result[:avg_record][:losses]).to eq(5.0)
+      expect(result[:avg_record][:ties]).to eq(0.0)
+    end
+
+    it "identifies best and worst teams" do
+      result = user.summary
+
+      expect(result[:best_team][:wins]).to eq(8)
+      expect(result[:worst_team][:wins]).to eq(6)
+    end
+
+    it "accepts custom season parameter" do
+      user.summary(2023)
+
+      expect(user).to have_received(:leagues).with(2023)
+      expect(user).to have_received(:rosters).with(2023)
+    end
+  end
 end

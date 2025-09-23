@@ -250,4 +250,44 @@ RSpec.describe SleeperApi::Draft do
       expect(first_pick[:picked_by]).to eq("user1")
     end
   end
+
+  describe "#rounds" do
+    let(:draft) { described_class.new(draft_id, client) }
+
+    it "groups picks by round" do
+      result = draft.rounds
+
+      expect(result).to be_a(Hash)
+      expect(result.keys).to include(1)
+      expect(result[1].length).to eq(2)
+      expect(result[1].all? { |pick| pick[:round] == 1 }).to be true
+    end
+
+    it "returns empty hash when no picks" do
+      allow(client).to receive(:get_draft_picks).and_return([])
+
+      draft = described_class.new(draft_id, client)
+      expect(draft.rounds).to eq({})
+    end
+  end
+
+  describe "#team_picks" do
+    let(:draft) { described_class.new(draft_id, client) }
+
+    it "groups picks by roster_id" do
+      result = draft.team_picks
+
+      expect(result).to be_a(Hash)
+      expect(result.keys).to include(1, 2)
+      expect(result[1].length).to eq(1)
+      expect(result[2].length).to eq(1)
+    end
+
+    it "returns empty hash when no picks" do
+      allow(client).to receive(:get_draft_picks).and_return([])
+
+      draft = described_class.new(draft_id, client)
+      expect(draft.team_picks).to eq({})
+    end
+  end
 end

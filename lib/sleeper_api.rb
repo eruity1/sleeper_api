@@ -1,6 +1,5 @@
 require_relative "sleeper_api/version"
 require_relative "sleeper_api/client"
-require_relative "sleeper_api/cache"
 require_relative "sleeper_api/helpers"
 require_relative "sleeper_api/league"
 require_relative "sleeper_api/user"

@@ -2,97 +2,226 @@ require "httparty"
 require "json"
 
 module SleeperApi
+  # HTTP client for Sleeper API requests.
+  #
+  # Handles all low-level HTTP calls, caching, retries, and error handling.
+  # Use via {SleeperApi.client} or create directly.
+  #
+  # @example
+  #   client = SleeperApi::Client.new(config)
+  #   league = client.league("123456")
+  #   user = client.user("username")
   class Client
+    include Helpers
     include HTTParty
 
     base_uri "https://api.sleeper.app/v1"
 
+    # @param config [SleeperApi::Configuration] Client configuration
     def initialize(config)
       @config = config
       @players_cache = nil
       @cache_timestamp = nil
     end
 
+    # Create a new {SleeperApi::League} instance.
+    #
+    # @param league_id [String] League identifier
+    # @return [SleeperApi::League]
+    # @see https://docs.sleeper.com/#leagues
     def league(league_id)
       League.new(league_id, self)
     end
 
+    # Create a new {SleeperApi::User} instance.
+    #
+    # @param identifier [String] Username or user ID
+    # @return [SleeperApi::User]
+    # @see https://docs.sleeper.com/#user
     def user(identifier)
       User.new(identifier, self)
     end
 
+    # Create a new {SleeperApi::Draft} instance.
+    #
+    # @param draft_id [String] Draft identifier
+    # @return [SleeperApi::Draft]
+    # @see https://docs.sleeper.com/#drafts
     def draft(draft_id)
       Draft.new(draft_id, self)
     end
 
+    # Fetch user data by identifier.
+    #
+    # @param identifier [String] Username or user ID
+    # @return [Hash] Raw user data
+    # @see https://docs.sleeper.com/#user
     def get_user(identifier)
       make_request("/user/#{identifier}")
     end
 
+    # Get leagues for a user in a specific season.
+    #
+    # @param user_id [String] User ID
+    # @param sport [String] Sport code (default: "nfl")
+    # @param season [Integer] Season year (default: current year)
+    # @return [Array<Hash>] League data
+    # @see https://docs.sleeper.com/#get-all-leagues-for-user
     def get_user_leagues(user_id, sport: "nfl", season: Time.now.year)
       make_request("/user/#{user_id}/leagues/#{sport}/#{season}")
     end
 
+    # Get drafts for a user in a specific season.
+    #
+    # @param user_id [String] User ID
+    # @param sport [String] Sport code (default: "nfl")
+    # @param season [Integer] Season year (default: current year)
+    # @return [Array<Hash>] Draft data
+    # @see https://docs.sleeper.com/#get-all-drafts-for-user
     def get_user_drafts(user_id, sport: "nfl", season: Time.now.year)
       make_request("/user/#{user_id}/drafts/#{sport}/#{season}")
     end
 
+    # Fetch league details.
+    #
+    # @param league_id [String] League ID
+    # @return [Hash] League metadata
+    # @see https://docs.sleeper.com/#get-a-specific-league
     def get_league(league_id)
       make_request("/league/#{league_id}")
     end
 
+    # Get all rosters in a league.
+    #
+    # @param league_id [String] League ID
+    # @return [Array<Hash>] Roster data
+    # @see https://docs.sleeper.com/#getting-rosters-in-a-league
     def get_league_rosters(league_id)
       make_request("/league/#{league_id}/rosters")
     end
 
+    # Get all users in a league.
+    #
+    # @param league_id [String, Integer] League ID
+    # @return [Array<Hash>] User data
+    # @see https://docs.sleeper.com/#getting-users-in-a-league
     def get_league_users(league_id)
       make_request("/league/#{league_id}/users")
     end
 
+    # Get matchups for a specific week.
+    #
+    # @param league_id [String, Integer] League ID
+    # @param week [Integer] Week number (1-17)
+    # @return [Array<Hash>] Matchup data
+    # @see https://docs.sleeper.com/#getting-matchups-in-a-league
     def get_league_matchups(league_id, week)
       make_request("/league/#{league_id}/matchups/#{week}")
     end
 
+    # Get playoff winners bracket.
+    #
+    # @param league_id [String, Integer] League ID
+    # @return [Array<Hash>] Bracket matchups
+    # @see https://docs.sleeper.com/#getting-the-playoff-bracket
     def get_playoff_bracket(league_id)
       make_request("/league/#{league_id}/winners_bracket")
     end
 
+    # Get toilet bowl (losers bracket).
+    #
+    # @param league_id [String, Integer] League ID
+    # @return [Array<Hash>] Bracket matchups
+    # @see https://docs.sleeper.com/#getting-the-playoff-bracket
     def get_toilet_bowl(league_id)
       make_request("/league/#{league_id}/losers_bracket")
     end
 
+    # Get transactions for a specific week.
+    #
+    # @param league_id [String, Integer] League ID
+    # @param week [Integer] Week number
+    # @return [Array<Hash>] Transaction data
+    # @see https://docs.sleeper.com/#get-transactions
     def get_transactions(league_id, week)
       make_request("/league/#{league_id}/transactions/#{week}")
     end
 
+    # Get league drafts.
+    #
+    # @param league_id [String, Integer] League ID
+    # @return [Array<Hash>] Draft data
+    # @see https://docs.sleeper.com/#get-all-drafts-for-a-league
     def get_league_drafts(league_id)
       make_request("/league/#{league_id}/drafts")
     end
 
+    # Get traded draft picks for a league.
+    #
+    # @param league_id [String, Integer] League ID
+    # @return [Array<Hash>] Traded picks
+    # @see https://docs.sleeper.com/#get-traded-picks-in-a-draft
     def get_league_traded_picks(league_id)
       make_request("/league/#{league_id}/traded_picks")
     end
 
+    # Fetch draft details.
+    #
+    # @param draft_id [String, Integer] Draft ID
+    # @return [Hash] Draft metadata
+    # @see https://docs.sleeper.com/#get-a-specific-draft
     def get_draft(draft_id)
       make_request("/draft/#{draft_id}")
     end
 
+    # Get draft picks.
+    #
+    # @param draft_id [String, Integer] Draft ID
+    # @return [Array<Hash>] Pick data
+    # @see https://docs.sleeper.com/#get-all-picks-in-a-draft
     def get_draft_picks(draft_id)
       make_request("/draft/#{draft_id}/picks")
     end
 
+    # Get traded draft picks for a draft.
+    #
+    # @param draft_id [String, Integer] Draft ID
+    # @return [Array<Hash>] Traded picks
+    # @see https://docs.sleeper.com/#get-traded-picks-in-a-draft
     def get_draft_traded_picks(draft_id)
       make_request("/draft/#{draft_id}/traded_picks")
     end
 
+    # Get NFL state (week, season status).
+    #
+    # @param sport [String] Sport code (default: "nfl")
+    # @return [Hash] State data
+    # @see https://docs.sleeper.com/#get-nfl-state
     def get_nfl_state(sport = "nfl")
-      make_request("/state/#{sport}")
+      nfl_state = make_request("/state/#{sport}")
+      nfl_state.each_with_object({}) do |(k, v), result|
+        key = k.is_a?(String) ? k.to_sym : k
+        result[key] = v
+      end
     end
 
+    # Get trending players.
+    #
+    # @param sport [String] Sport code (default: "nfl")
+    # @param type [String] Trend type ("add" or "drop", default: "add")
+    # @param lookback_hours [Integer] Hours to look back (default: 24)
+    # @param limit [Integer] Max results (default: 25)
+    # @return [Array<Hash>] Trending players
+    # @see https://docs.sleeper.com/#trending-players
     def trending_players(sport = "nfl", type: "add", lookback_hours: 24, limit: 25)
       make_request("/players/#{sport}/trending/#{type}?lookback_hours=#{lookback_hours}&limit=#{limit}")
     end
 
+    # Get all player data (cached for 24 hours).
+    #
+    # @param sport [String] Sport code (default: "nfl")
+    # @return [Hash{String => Hash}] Player ID to player data mapping
+    # @see https://docs.sleeper.com/#fetch-all-players
     def get_players(sport = "nfl")
       return @players_cache if @players_cache && @cache_timestamp && (Time.now - @cache_timestamp) < (3600 * 24)
 
@@ -103,12 +232,23 @@ module SleeperApi
       @players_cache
     end
 
+    # Get a specific player by ID.
+    #
+    # @param player_id [String] Player ID
+    # @param sport [String] Sport code (default: "nfl")
+    # @return [Hash, nil] Player data or nil if not found
+    # @see #get_players
     def get_player_by_id(player_id, sport = "nfl")
       get_players(sport)[player_id]
     end
 
     private
 
+    # Make an HTTP request with retry logic and logging.
+    #
+    # @param path [String] API endpoint path
+    # @return [HTTParty::Response]
+    # @raise [SleeperApi::Error] On HTTP errors or timeouts
     def make_request(path)
       @config.logger&.info("Making request to #{self.class.base_uri}#{path}")
       retries = 0

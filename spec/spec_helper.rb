@@ -1,8 +1,8 @@
 require "bundler/setup"
-require "sleeper_api"
-require "webmock/rspec"
 require "simplecov"
 
+# SimpleCov must start before the library is required, otherwise none of
+# lib/ is instrumented and coverage is reported as 0/0 lines.
 SimpleCov.start do
   add_filter "/spec/"
   add_filter "/bin/"
@@ -10,6 +10,10 @@ SimpleCov.start do
   minimum_coverage 90
   maximum_coverage_drop 2
 end
+
+require "logger"
+require "sleeper_api"
+require "webmock/rspec"
 
 WebMock.disable_net_connect!(allow_localhost: true)
 

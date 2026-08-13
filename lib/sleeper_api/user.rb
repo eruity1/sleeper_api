@@ -50,7 +50,8 @@ module SleeperApi
     def leagues(season = Time.now.year)
       raise ArgumentError, "season must be a valid year" unless season.is_a?(Integer)
 
-      fetch_leagues(season) unless @leagues
+      fetch_leagues(season)
+      @leagues
     end
 
     # Get all rosters for this user across all leagues in a season.

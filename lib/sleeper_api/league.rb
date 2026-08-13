@@ -134,7 +134,7 @@ module SleeperApi
     #     puts "#{user[:display_name]} #{role}"
     #   end
     def users
-      fetch_users unless @fetch_users
+      fetch_users unless @league_users
       format_users
     end
 
@@ -310,14 +310,14 @@ module SleeperApi
         {
           matchup_id: matchup_id,
           rosters: matchup_entries.map do |roster|
-            starters = roster["starters"]
+            starters = roster["starters"] || []
 
-            bench = roster["players"] - starters
+            bench = (roster["players"] || []) - starters
             {
               roster_id: roster["roster_id"],
               points: roster["points"],
               custom_points: roster["custom_points"],
-              total_points: roster["points"] + (roster["custom_points"] || 0),
+              total_points: (roster["points"] || 0) + (roster["custom_points"] || 0),
               starters: starters,
               bench: bench,
               starter_points: (starters || []).map do |starter_id|
@@ -329,7 +329,7 @@ module SleeperApi
             }
           end
         }
-      end
+      end.compact
     end
 
     def format_users
@@ -342,7 +342,7 @@ module SleeperApi
           username: user["username"],
           display_name: user["display_name"],
           avatar_id: user["avatar"],
-          team_name: user_metadata["team_name"],
+          team_name: user_metadata&.dig("team_name"),
           commissioner: user["is_owner"],
           is_bot: user["is_bot"],
           metadata: user_metadata.is_a?(Hash) ? user_metadata.transform_keys(&:to_sym) : user_metadata,

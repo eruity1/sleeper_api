@@ -54,6 +54,10 @@ RSpec + WebMock, with `WebMock.disable_net_connect!` — **specs must never hit 
 
 ## Release
 
-Version lives in `lib/sleeper_api/version.rb`. `bundle exec rake release` tags and pushes to rubygems. Update `CHANGELOG.md` first.
+Version lives in `lib/sleeper_api/version.rb`. Update `CHANGELOG.md`, then `bundle exec rake release` from a clean `main`, which builds to `pkg/`, tags, pushes the tag, and uploads to rubygems.
 
-v1.0.0 is published with six bugs that are fixed in the working tree but not yet released — see the unreleased section of `CHANGELOG.md`. Consumers on the published gem still hit them.
+**The API key needs the `push_rubygem` scope.** `gem signin` defaults to `index_rubygems` only — read access — and answering `n` to "Do you want to customise scopes?" produces a key that fails the upload with `This API key cannot perform the specified action on this gem`. Answer `y` and enable `push_rubygem`, or edit the key's scopes at https://rubygems.org/profile/api_keys. Credentials land in `~/.local/share/gem/credentials` (the XDG path, not `~/.gem/credentials`).
+
+**`rake release` is not atomic.** It tags and pushes the tag *before* uploading, so a failed upload leaves the tag published and the gem unreleased. Recovering means `gem push pkg/sleeper_api-<version>.gem` on the existing artifact — re-running `rake release` fails on the tag that already exists.
+
+Consumers do not get a fix until it is published *and* they bump their lockfile.

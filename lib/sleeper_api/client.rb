@@ -264,7 +264,7 @@ module SleeperApi
       rescue Net::OpenTimeout, Net::ReadTimeout => e
         retries += 1
         if retries <= @config.retries
-          @config.logger&.warn("Retrying #{path} (attempt #{retries}/#{config.retries}) due to #{e}")
+          @config.logger&.warn("Retrying #{path} (attempt #{retries}/#{@config.retries}) due to #{e}")
           sleep(1)
           retry
         else

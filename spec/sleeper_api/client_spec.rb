@@ -100,6 +100,86 @@ RSpec.describe SleeperApi::Client do
       end
     end
 
+    describe "endpoint paths" do
+      # Each of these is a thin passthrough to make_request; the contract that
+      # matters is the URL it builds.
+      {
+        "get_user_leagues" => ["/user/u1/leagues/nfl/2024", ["u1", { season: 2024 }]],
+        "get_user_drafts" => ["/user/u1/drafts/nfl/2024", ["u1", { season: 2024 }]],
+        "get_league_rosters" => ["/league/l1/rosters", ["l1"]],
+        "get_league_users" => ["/league/l1/users", ["l1"]],
+        "get_league_matchups" => ["/league/l1/matchups/3", %w[l1 3]],
+        "get_playoff_bracket" => ["/league/l1/winners_bracket", ["l1"]],
+        "get_toilet_bowl" => ["/league/l1/losers_bracket", ["l1"]],
+        "get_transactions" => ["/league/l1/transactions/3", %w[l1 3]],
+        "get_league_drafts" => ["/league/l1/drafts", ["l1"]],
+        "get_league_traded_picks" => ["/league/l1/traded_picks", ["l1"]],
+        "get_draft_picks" => ["/draft/d1/picks", ["d1"]],
+        "get_draft_traded_picks" => ["/draft/d1/traded_picks", ["d1"]]
+      }.each do |method, (path, args)|
+        it "#{method} requests #{path}" do
+          stub_request(:get, "#{base_url}#{path}").to_return(
+            status: 200, body: JSON.generate([]), headers: { "Content-Type" => "application/json" }
+          )
+
+          positional = args.grep_v(Hash)
+          keywords = args.find { |a| a.is_a?(Hash) } || {}
+          keywords.empty? ? client.public_send(method, *positional) : client.public_send(method, *positional, **keywords)
+
+          expect(WebMock).to have_requested(:get, "#{base_url}#{path}")
+        end
+      end
+
+      it "get_user_leagues defaults to the current year" do
+        path = "/user/u1/leagues/nfl/#{Time.now.year}"
+        stub_request(:get, "#{base_url}#{path}").to_return(
+          status: 200, body: JSON.generate([]), headers: { "Content-Type" => "application/json" }
+        )
+
+        client.get_user_leagues("u1")
+
+        expect(WebMock).to have_requested(:get, "#{base_url}#{path}")
+      end
+    end
+
+    describe "#get_nfl_state" do
+      before do
+        stub_request(:get, "#{base_url}/state/nfl").to_return(
+          status: 200,
+          body: JSON.generate({ "week" => 5, "season" => "2024" }),
+          headers: { "Content-Type" => "application/json" }
+        )
+      end
+
+      it "symbolizes the top-level keys" do
+        expect(client.get_nfl_state).to eq({ week: 5, season: "2024" })
+      end
+    end
+
+    describe "#trending_players" do
+      it "passes lookback and limit as query params" do
+        path = "/players/nfl/trending/add?lookback_hours=48&limit=10"
+        stub_request(:get, "#{base_url}#{path}").to_return(
+          status: 200, body: JSON.generate([]), headers: { "Content-Type" => "application/json" }
+        )
+
+        client.trending_players(type: "add", lookback_hours: 48, limit: 10)
+
+        expect(WebMock).to have_requested(:get, "#{base_url}#{path}")
+      end
+
+      it "defaults to add over 24 hours with a limit of 25" do
+        path = "/players/nfl/trending/add?lookback_hours=24&limit=25"
+        stub_request(:get, "#{base_url}#{path}").to_return(
+          status: 200, body: JSON.generate([]), headers: { "Content-Type" => "application/json" }
+        )
+
+        client.trending_players
+
+        expect(WebMock).to have_requested(:get, "#{base_url}#{path}")
+      end
+    end
+
     describe "#get_players" do
       before do
         FileUtils.rm_f("players_cache.json")
@@ -169,6 +249,14 @@ RSpec.describe SleeperApi::Client do
 
       it "raises error after exhausting retries" do
         expect { client.get_user("testuser") }.to raise_error(SleeperApi::Error, "Request timed out after 2 retries")
+      end
+
+      it "logs each retry when a logger is configured" do
+        logger = instance_spy(Logger)
+        config.logger = logger
+
+        expect { client.get_user("testuser") }.to raise_error(SleeperApi::Error, /timed out/)
+        expect(logger).to have_received(:warn).with(%r{attempt 1/1})
       end
     end
   end

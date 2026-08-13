@@ -138,6 +138,11 @@ RSpec.describe SleeperApi::User do
       expect(client).to have_received(:get_user_leagues).once
     end
 
+    it "returns the cached leagues on subsequent calls" do
+      first = user.leagues
+      expect(user.leagues).to eq(first)
+    end
+
     it "accepts custom season parameter" do
       user.leagues(2023)
       expect(client).to have_received(:get_user_leagues).with("user123", season: 2023)

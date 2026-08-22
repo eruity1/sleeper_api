@@ -1,3 +1,14 @@
+## [1.1.0] - 2026-08-22
+
+### Fixed
+
+- `League#rosters` truncated every score. Sleeper splits a score across two integer fields — `fpts: 1617` with `fpts_decimal: 78` is 1617.78 — and `total_points` read `fpts` alone. The loss was invisible because what remained was still a plausible score, and no fixture carried a `fpts_decimal` to catch it. **This changes `total_points` from an Integer to a Float** for any roster whose score has a fractional part.
+- `League#rosters` returned `co_owners: nil` for every roster, always. It read `roster["co_owner"]`, singular; no Sleeper payload has ever contained that key. Now reads the plural spelling, and still yields `nil` when the field is absent — Sleeper's documented roster object does not include co-owners, though the published docs are partial (the league `settings` object is rendered only as `{ settings object }`).
+
+### Added
+
+- `League#rosters` now returns `points_against`, combining `fpts_against` with `fpts_against_decimal` the same way. Previously reachable only by digging into the raw `settings` hash that passes through wholesale.
+
 ## [1.0.1] - 2026-08-12
 
 ### Fixed

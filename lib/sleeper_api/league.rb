@@ -281,7 +281,8 @@ module SleeperApi
           injured_reserve: roster["reserve"] || [],
           taxi: roster["taxi"] || [],
           bench: (roster["players"] || []) - (roster["starters"] || []) - (roster["reserve"] || []) - (roster["taxi"] || []),
-          total_points: roster_settings&.dig("fpts"),
+          total_points: combined_points(roster_settings, "fpts"),
+          points_against: combined_points(roster_settings, "fpts_against"),
           wins: roster_settings&.dig("wins"),
           ties: roster_settings&.dig("ties"),
           losses: roster_settings&.dig("losses"),
@@ -290,7 +291,7 @@ module SleeperApi
           faab_used: roster_settings&.dig("waiver_budget_used"),
           waiver_position: roster_settings&.dig("waiver_position"),
           streak: roster_metadata&.dig("streak"),
-          co_owners: roster["co_owner"],
+          co_owners: roster["co_owners"],
           keepers: roster["keepers"],
           players_map: roster["player_map"],
           players: roster["players"],
@@ -298,6 +299,21 @@ module SleeperApi
           settings: roster_settings.is_a?(Hash) ? roster_settings.transform_keys(&:to_sym) : roster_settings
         }
       end
+    end
+
+    # Sleeper splits a score across two integer fields: fpts 1617 with
+    # fpts_decimal 78 is 1617.78. Reading fpts alone truncates every score in
+    # the league, and the loss is invisible because what remains is still a
+    # plausible number.
+    #
+    # Recombined as (whole * 100 + fraction) / 100.0 rather than
+    # whole + fraction / 100.0 — the latter accumulates two rounding steps and
+    # lands on 1617.7800000000002.
+    def combined_points(settings, key)
+      whole = settings&.dig(key)
+      return nil if whole.nil?
+
+      ((whole * 100) + (settings["#{key}_decimal"] || 0)) / 100.0
     end
 
     def format_matchups(week)

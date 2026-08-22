@@ -243,6 +243,53 @@ RSpec.describe SleeperApi::League do
       expect(league.rosters.first).to include(wins: 8, losses: 4, ties: 1, total_points: 120)
     end
 
+    # Sleeper splits a score across two integer fields: fpts 1617 with
+    # fpts_decimal 78 is 1617.78. Reading fpts alone truncates every score in
+    # the league, and the loss is invisible because the result is still a
+    # plausible number.
+    it "combines fpts with fpts_decimal into a real score" do
+      rosters_data.first["settings"].merge!("fpts" => 1617, "fpts_decimal" => 78)
+
+      expect(league.rosters.first[:total_points]).to eq(1617.78)
+    end
+
+    it "combines fpts_against with fpts_against_decimal" do
+      rosters_data.first["settings"].merge!("fpts_against" => 1670, "fpts_against_decimal" => 32)
+
+      expect(league.rosters.first[:points_against]).to eq(1670.32)
+    end
+
+    it "treats a missing decimal half as zero rather than dropping the score" do
+      rosters_data.first["settings"].merge!("fpts" => 99, "fpts_against" => 88)
+      rosters_data.first["settings"].delete("fpts_decimal")
+
+      roster = league.rosters.first
+      expect(roster[:total_points]).to eq(99)
+      expect(roster[:points_against]).to eq(88)
+    end
+
+    it "leaves points nil when the roster has no settings at all" do
+      orphan = league.rosters.last
+
+      expect(orphan[:total_points]).to be_nil
+      expect(orphan[:points_against]).to be_nil
+    end
+
+    # Sleeper's documented roster object carries no co-owner field, but the
+    # docs are demonstrably partial (the league settings object is rendered as
+    # "{ settings object }"), so this reads the plural spelling the API would
+    # use and yields nil when it is absent. It previously read "co_owner",
+    # singular, which no payload has ever contained.
+    it "reads co-owners under the plural key the API uses" do
+      rosters_data.first["co_owners"] = %w[user2 user3]
+
+      expect(league.rosters.first[:co_owners]).to eq(%w[user2 user3])
+    end
+
+    it "yields nil co-owners when the field is absent" do
+      expect(league.rosters.first[:co_owners]).to be_nil
+    end
+
     it "computes remaining faab from the league waiver budget" do
       expect(league.rosters.first).to include(remaining_faab: 75, faab_used: 25, waiver_position: 3)
     end

@@ -1,3 +1,15 @@
+## [1.2.0] - 2026-08-23
+
+### Added
+
+- `Client#schedule(season, season_type:, sport:)` — a season's game list, each entry `{status, date, home, away, week, game_id}`. A team's bye week is the week it appears in no game, which derives exactly: checked against 2024, 2025 and 2026, every one gives exactly one bye per team. Note `pre` (weeks 1-3) and `post` (weeks 1-4) restart week numbering, so games from different season types must never be pooled, and a season Sleeper has not scheduled yet answers 200 with `[]` rather than 404.
+
+### Changed
+
+- **`base_uri` is now the bare host, `https://api.sleeper.app`, and every path carries its own `/v1`.** The schedule endpoint is served from the host root, so while the version lived in `base_uri` it was unreachable at any path a caller could pass to `make_request`. Moving the version into the paths means one mechanism for every endpoint rather than an escape hatch for the exceptions.
+
+  **This changes the text of `SleeperApi::Error`**, which quotes the path it failed on: `"Failed to fetch /user/x: 404"` is now `"Failed to fetch /v1/user/x: 404"`. Anything matching on that string needs updating — though matching on it was never sound, since the same error covers a missing user, a 5xx and a timeout alike.
+
 ## [1.1.0] - 2026-08-22
 
 ### Fixed

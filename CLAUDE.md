@@ -26,7 +26,9 @@ CI (`.github/workflows/ci.yml`) runs `bundle exec rake ci` on Ruby 3.2 only. The
 Four layers, with a deliberate split between HTTP and modeling:
 
 - **`SleeperApi`** (`lib/sleeper_api.rb`) — module-level config + memoized global `SleeperApi.client`. `Configuration` validates `timeout` (10–60) and `retries` (0–5), raising `SleeperApi::Error` outside those bounds.
-- **`Client`** — the only thing that talks HTTP. `include HTTParty` with `base_uri "https://api.sleeper.app/v1"`. Every call funnels through the private `make_request`, which handles retry-on-timeout, logging, and converts non-2xx into `SleeperApi::Error`. It also owns the 24-hour in-memory player cache.
+- **`Client`** — the only thing that talks HTTP. `include HTTParty` with `base_uri "https://api.sleeper.app"` — **the bare host; the `/v1` lives in each path**. That is deliberate and load-bearing: not every Sleeper endpoint is versioned. `/schedule/{sport}/{season_type}/{season}` is served from the host root, and while `base_uri` carried the version that endpoint was unreachable at any path a caller could pass in. A new endpoint spells out where it lives; do not move the version back into `base_uri` to shorten the paths.
+
+  Every call funnels through the private `make_request`, which handles retry-on-timeout, logging, and converts non-2xx into `SleeperApi::Error`. **That error quotes the path**, so the path prefix is part of a public string — v1.2.0 changed it from `"Failed to fetch /user/x: 404"` to `"Failed to fetch /v1/user/x: 404"`. `Client` also owns the 24-hour in-memory player cache.
 - **`League` / `User` / `Draft`** — resource objects. Each takes `(id, client)`, fetches eagerly in the constructor, memoizes into ivars, and exposes formatted hashes.
 - **`Helpers`** — mixed into all four. `deep_symbolize_keys` plus `player_details`, which reaches through `@client` — so any class including it must define `@client`.
 

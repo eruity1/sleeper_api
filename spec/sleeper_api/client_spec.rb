@@ -180,6 +180,50 @@ RSpec.describe SleeperApi::Client do
       end
     end
 
+    # The schedule lives at the host root, NOT under /v1. Before this existed,
+    # base_uri carried the version and every path was relative to it, so this
+    # endpoint was unreachable from the gem at any path you could pass in.
+    #
+    # `host_url` rather than `base_url` on purpose: a spec that built this URL
+    # off base_url would be asserting the bug.
+    describe "#schedule" do
+      let(:host_url) { "https://api.sleeper.app" }
+      let(:games) do
+        [{ "status" => "pre_game", "date" => "2026-10-18", "home" => "GB",
+           "away" => "DAL", "week" => 6, "game_id" => "202610612" }]
+      end
+
+      it "fetches the regular season schedule from outside /v1" do
+        stub_request(:get, "#{host_url}/schedule/nfl/regular/2026").to_return(
+          status: 200, body: JSON.generate(games),
+          headers: { "Content-Type" => "application/json" }
+        )
+
+        expect(client.schedule(2026).parsed_response).to eq(games)
+      end
+
+      it "takes a season type, because pre and post restart week numbering" do
+        stub_request(:get, "#{host_url}/schedule/nfl/post/2025").to_return(
+          status: 200, body: JSON.generate([]),
+          headers: { "Content-Type" => "application/json" }
+        )
+
+        client.schedule(2025, season_type: "post")
+
+        expect(WebMock).to have_requested(:get, "#{host_url}/schedule/nfl/post/2025")
+      end
+
+      # A season Sleeper has not scheduled yet answers 200 with [], not 404.
+      # Confirmed live against post/2026 on 2026-08-23.
+      it "treats an empty schedule as a result rather than an error" do
+        stub_request(:get, "#{host_url}/schedule/nfl/post/2026").to_return(
+          status: 200, body: "[]", headers: { "Content-Type" => "application/json" }
+        )
+
+        expect(client.schedule(2026, season_type: "post").parsed_response).to eq([])
+      end
+    end
+
     describe "#get_players" do
       before do
         FileUtils.rm_f("players_cache.json")
@@ -225,8 +269,11 @@ RSpec.describe SleeperApi::Client do
         )
       end
 
+      # The path carries the API version now that base_uri does not, and the
+      # error message quotes the path — so this string changed with it.
       it "raises SleeperApi::Error" do
-        expect { client.get_user("nonexistent") }.to raise_error(SleeperApi::Error, "Failed to fetch /user/nonexistent: 404")
+        expect { client.get_user("nonexistent") }
+          .to raise_error(SleeperApi::Error, "Failed to fetch /v1/user/nonexistent: 404")
       end
     end
 

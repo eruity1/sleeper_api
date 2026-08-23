@@ -15,7 +15,11 @@ module SleeperApi
     include Helpers
     include HTTParty
 
-    base_uri "https://api.sleeper.app/v1"
+    # The host only. The API version belongs in the paths because not every
+    # endpoint has one: /schedule is served from the root, and while base_uri
+    # carried "/v1" that endpoint was unreachable at any path a caller could
+    # pass to make_request.
+    base_uri "https://api.sleeper.app"
 
     # @param config [SleeperApi::Configuration] Client configuration
     def initialize(config)
@@ -57,7 +61,7 @@ module SleeperApi
     # @return [Hash] Raw user data
     # @see https://docs.sleeper.com/#user
     def get_user(identifier)
-      make_request("/user/#{identifier}")
+      make_request("/v1/user/#{identifier}")
     end
 
     # Get leagues for a user in a specific season.
@@ -68,7 +72,7 @@ module SleeperApi
     # @return [Array<Hash>] League data
     # @see https://docs.sleeper.com/#get-all-leagues-for-user
     def get_user_leagues(user_id, sport: "nfl", season: Time.now.year)
-      make_request("/user/#{user_id}/leagues/#{sport}/#{season}")
+      make_request("/v1/user/#{user_id}/leagues/#{sport}/#{season}")
     end
 
     # Get drafts for a user in a specific season.
@@ -79,7 +83,7 @@ module SleeperApi
     # @return [Array<Hash>] Draft data
     # @see https://docs.sleeper.com/#get-all-drafts-for-user
     def get_user_drafts(user_id, sport: "nfl", season: Time.now.year)
-      make_request("/user/#{user_id}/drafts/#{sport}/#{season}")
+      make_request("/v1/user/#{user_id}/drafts/#{sport}/#{season}")
     end
 
     # Fetch league details.
@@ -88,7 +92,7 @@ module SleeperApi
     # @return [Hash] League metadata
     # @see https://docs.sleeper.com/#get-a-specific-league
     def get_league(league_id)
-      make_request("/league/#{league_id}")
+      make_request("/v1/league/#{league_id}")
     end
 
     # Get all rosters in a league.
@@ -97,7 +101,7 @@ module SleeperApi
     # @return [Array<Hash>] Roster data
     # @see https://docs.sleeper.com/#getting-rosters-in-a-league
     def get_league_rosters(league_id)
-      make_request("/league/#{league_id}/rosters")
+      make_request("/v1/league/#{league_id}/rosters")
     end
 
     # Get all users in a league.
@@ -106,7 +110,7 @@ module SleeperApi
     # @return [Array<Hash>] User data
     # @see https://docs.sleeper.com/#getting-users-in-a-league
     def get_league_users(league_id)
-      make_request("/league/#{league_id}/users")
+      make_request("/v1/league/#{league_id}/users")
     end
 
     # Get matchups for a specific week.
@@ -116,7 +120,7 @@ module SleeperApi
     # @return [Array<Hash>] Matchup data
     # @see https://docs.sleeper.com/#getting-matchups-in-a-league
     def get_league_matchups(league_id, week)
-      make_request("/league/#{league_id}/matchups/#{week}")
+      make_request("/v1/league/#{league_id}/matchups/#{week}")
     end
 
     # Get playoff winners bracket.
@@ -125,7 +129,7 @@ module SleeperApi
     # @return [Array<Hash>] Bracket matchups
     # @see https://docs.sleeper.com/#getting-the-playoff-bracket
     def get_playoff_bracket(league_id)
-      make_request("/league/#{league_id}/winners_bracket")
+      make_request("/v1/league/#{league_id}/winners_bracket")
     end
 
     # Get toilet bowl (losers bracket).
@@ -134,7 +138,7 @@ module SleeperApi
     # @return [Array<Hash>] Bracket matchups
     # @see https://docs.sleeper.com/#getting-the-playoff-bracket
     def get_toilet_bowl(league_id)
-      make_request("/league/#{league_id}/losers_bracket")
+      make_request("/v1/league/#{league_id}/losers_bracket")
     end
 
     # Get transactions for a specific week.
@@ -144,7 +148,7 @@ module SleeperApi
     # @return [Array<Hash>] Transaction data
     # @see https://docs.sleeper.com/#get-transactions
     def get_transactions(league_id, week)
-      make_request("/league/#{league_id}/transactions/#{week}")
+      make_request("/v1/league/#{league_id}/transactions/#{week}")
     end
 
     # Get league drafts.
@@ -153,7 +157,7 @@ module SleeperApi
     # @return [Array<Hash>] Draft data
     # @see https://docs.sleeper.com/#get-all-drafts-for-a-league
     def get_league_drafts(league_id)
-      make_request("/league/#{league_id}/drafts")
+      make_request("/v1/league/#{league_id}/drafts")
     end
 
     # Get traded draft picks for a league.
@@ -162,7 +166,7 @@ module SleeperApi
     # @return [Array<Hash>] Traded picks
     # @see https://docs.sleeper.com/#get-traded-picks-in-a-draft
     def get_league_traded_picks(league_id)
-      make_request("/league/#{league_id}/traded_picks")
+      make_request("/v1/league/#{league_id}/traded_picks")
     end
 
     # Fetch draft details.
@@ -171,7 +175,7 @@ module SleeperApi
     # @return [Hash] Draft metadata
     # @see https://docs.sleeper.com/#get-a-specific-draft
     def get_draft(draft_id)
-      make_request("/draft/#{draft_id}")
+      make_request("/v1/draft/#{draft_id}")
     end
 
     # Get draft picks.
@@ -180,7 +184,7 @@ module SleeperApi
     # @return [Array<Hash>] Pick data
     # @see https://docs.sleeper.com/#get-all-picks-in-a-draft
     def get_draft_picks(draft_id)
-      make_request("/draft/#{draft_id}/picks")
+      make_request("/v1/draft/#{draft_id}/picks")
     end
 
     # Get traded draft picks for a draft.
@@ -189,7 +193,7 @@ module SleeperApi
     # @return [Array<Hash>] Traded picks
     # @see https://docs.sleeper.com/#get-traded-picks-in-a-draft
     def get_draft_traded_picks(draft_id)
-      make_request("/draft/#{draft_id}/traded_picks")
+      make_request("/v1/draft/#{draft_id}/traded_picks")
     end
 
     # Get NFL state (week, season status).
@@ -198,11 +202,34 @@ module SleeperApi
     # @return [Hash] State data
     # @see https://docs.sleeper.com/#get-nfl-state
     def get_nfl_state(sport = "nfl")
-      nfl_state = make_request("/state/#{sport}")
+      nfl_state = make_request("/v1/state/#{sport}")
       nfl_state.each_with_object({}) do |(k, v), result|
         key = k.is_a?(String) ? k.to_sym : k
         result[key] = v
       end
+    end
+
+    # Get a season's game schedule.
+    #
+    # Undocumented, and served from the host root rather than /v1 — hence the
+    # version living in the paths rather than in base_uri.
+    #
+    # Returns a flat array of games, each `{status, date, home, away, week,
+    # game_id}`. A team's bye week is the week it appears in no game; that
+    # derives exactly, but only within one season type — `pre` (weeks 1-3) and
+    # `post` (weeks 1-4) restart week numbering, so games from different season
+    # types must never be pooled.
+    #
+    # A season Sleeper has not scheduled yet answers 200 with an empty array
+    # rather than 404, so an empty result is a legitimate answer and not an
+    # error.
+    #
+    # @param season [Integer, String] Season year, e.g. 2026
+    # @param season_type [String] "regular" (default), "pre", or "post"
+    # @param sport [String] Sport code (default: "nfl")
+    # @return [HTTParty::Response] Array of games
+    def schedule(season, season_type: "regular", sport: "nfl")
+      make_request("/schedule/#{sport}/#{season_type}/#{season}")
     end
 
     # Get trending players.
@@ -214,7 +241,7 @@ module SleeperApi
     # @return [Array<Hash>] Trending players
     # @see https://docs.sleeper.com/#trending-players
     def trending_players(sport = "nfl", type: "add", lookback_hours: 24, limit: 25)
-      make_request("/players/#{sport}/trending/#{type}?lookback_hours=#{lookback_hours}&limit=#{limit}")
+      make_request("/v1/players/#{sport}/trending/#{type}?lookback_hours=#{lookback_hours}&limit=#{limit}")
     end
 
     # Get all player data (cached for 24 hours).
@@ -225,7 +252,7 @@ module SleeperApi
     def get_players(sport = "nfl")
       return @players_cache if @players_cache && @cache_timestamp && (Time.now - @cache_timestamp) < (3600 * 24)
 
-      response = make_request("/players/#{sport}")
+      response = make_request("/v1/players/#{sport}")
       @players_cache = response.parsed_response
       @cache_timestamp = Time.now
 

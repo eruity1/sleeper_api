@@ -2,71 +2,71 @@
 
 [![Gem Version](https://badge.fury.io/rb/sleeper_api.svg)](https://badge.fury.io/rb/sleeper_api)
 
-A comprehensive Ruby gem for interacting with [Sleeper's fantasy football API](https://docs.sleeper.com/). Built with performance, reliability, and developer experience in mind.
+A comprehensive Ruby gem for interacting with [Sleeper's fantasy football API](https://docs.sleeper.com/). Built with performance, reliability, and developer experience in mind.
 
 ## Features
 
-- Complete API Coverage - Users, leagues, drafts, players, matchups, transactions
+- Complete API Coverage - Users, leagues, drafts, players, matchups, transactions
 
-- Performance Optimized - Smart caching, connection pooling, rate limiting
+- Performance Optimized - Smart caching, connection pooling, rate limiting
 
-- Robust Error Handling - Automatic retries, timeout management, detailed error messages
+- Robust Error Handling - Automatic retries, timeout management, detailed error messages
 
-- Well Tested - 90%+ test coverage with RSpec
+- Well Tested - 90%+ test coverage with RSpec
 
-- Highly Configurable - Custom timeouts, retries, logging
+- Highly Configurable - Custom timeouts, retries, logging
 
-- Production Ready - Type signatures, CI/CD, code quality tools
+- Production Ready - Type signatures, CI/CD, code quality tools
 
 ## Installation
 
 Add this line to your application's Gemfile:
 
 ```ruby
-gem 'sleeper_api'
+gem 'sleeper_api'
 ```
 
 ## Quick Start
 
 ```ruby
-require 'sleeper_api'
+require 'sleeper_api'
 
-# Basic usage with default configuration
-client = SleeperApi.client
-league = client.league("123456789012345678")
+# Basic usage with default configuration
+client = SleeperApi.client
+league = client.league("123456789012345678")
 
-# Access league information
-puts league.name          # "My Fantasy League"
-puts league.total_rosters # 12
-puts league.status        # "in_season"
+# Access league information
+puts league.name          # "My Fantasy League"
+puts league.total_rosters # 12
+puts league.status        # "in_season"
 
-# Get rosters
-rosters = league.rosters
-rosters.each do |roster|
-  puts "#{roster[:owner_display_name]}: #{roster[:wins]}-#{roster[:losses]}"
+# Get rosters
+rosters = league.rosters
+rosters.each do |roster|
+  puts "#{roster[:owner_display_name]}: #{roster[:wins]}-#{roster[:losses]}"
 end
 ```
 
 ## Configuration
 
-Customize the gem's behavior:
+Customize the gem's behavior:
 
 ```ruby
-SleeperApi.configure do |config|
-  config.timeout = 45    # Request timeout in seconds (10-60)
-  config.retries = 5     # Number of retries on failure (0-5)
-  config.logger = Logger.new(STDOUT)  # Custom logger
+SleeperApi.configure do |config|
+  config.timeout = 45    # Request timeout in seconds (10-60)
+  config.retries = 5     # Number of retries on failure (0-5)
+  config.logger = Logger.new(STDOUT)  # Custom logger
 end
 
-# Configuration is applied to all subsequent client instances
-client = SleeperApi.client
+# Configuration is applied to all subsequent client instances
+client = SleeperApi.client
 ```
 
 ## API Coverage
 
 ### Users
 
-Get user information and their leagues/drafts:
+Get user information and their leagues/drafts:
 
 ```ruby
 # Find a user by username
@@ -118,7 +118,7 @@ puts "Overall: #{summary[:total_wins]}-#{summary[:total_losses]}"
 
 ### Leagues
 
-Access league data, rosters, matchups, and transactions:
+Access league data, rosters, matchups, and transactions:
 
 ```ruby
 league = SleeperApi.client.league("123456")
@@ -180,7 +180,7 @@ matchup[:winner_owner]         # => "Team Beta"
 
 ### Drafts
 
-Access draft information, picks, and traded picks:
+Access draft information, picks, and traded picks:
 
 ```ruby
 # Get a specific draft
@@ -237,19 +237,19 @@ team_3_rounds = draft.team_picks[3] # Team 3's picks by round
 
 ### Players
 
-Access player data with automatic caching:
+Access player data with automatic caching:
 
 ```ruby
-# Get all players (cached for 24 hours)
-players = client.get_players
+# Get all players (cached for 24 hours)
+players = client.get_players
 
-# Find specific player
-player = client.get_player_by_id("1234")
-puts "#{player['first_name']} #{player['last_name']} - #{player['position']}"
+# Find specific player
+player = client.get_player_by_id("1234")
+puts "#{player['first_name']} #{player['last_name']} - #{player['position']}"
 
-# Get trending players
-trending_adds = client.trending_players(type: "add", limit: 10)
-trending_drops = client.trending_players(type: "drop", limit: 10)
+# Get trending players
+trending_adds = client.trending_players(type: "add", limit: 10)
+trending_drops = client.trending_players(type: "drop", limit: 10)
 ```
 
 ### Player Helper
@@ -313,103 +313,121 @@ rosters.each do |roster|
 end
 ```
 
-### Additional Endpoints
+### Additional Endpoints
 
 ```ruby
-# Get NFL state
-state = client.get_nfl_state
-puts "Current week: #{state['week']}"
+# Get NFL state
+state = client.get_nfl_state
+puts "Current week: #{state['week']}"
 
-# Get playoff brackets
-winners_bracket = client.get_league_playoff_bracket("league_id")
-losers_bracket = client.get_league_toilet_bowl("league_id")
+# Per-player weekly stats and projections (undocumented endpoints).
+# Keyed by player id, plus TEAM_XXX keys for team-level rows.
+week_stats = client.stats(2025, week: 1)
+puts week_stats["4046"]["pts_ppr"]   # => 21.4
+puts week_stats["4046"]["off_snp"]   # raw counting stats too
 
-# Get league drafts
-league_drafts = client.get_league_drafts("league_id")
+projected = client.projections(2026, week: 1)
 
-# Get traded picks
-traded_picks = client.get_league_traded_picks("league_id")
+# Omit the week for season totals — a different resource, not a default.
+season_stats = client.stats(2025)
+
+# Nothing here 404s: an unplayed week, a week out of range and an unknown
+# season type all answer 200 with {}. And a projections call for a season
+# Sleeper has not projected still returns thousands of entries carrying only
+# an `adp_dd_ppr` sentinel — a row count is not evidence of a projection, so
+# filter on the field you actually want.
+real = projected.parsed_response.select { |_id, row| row.key?("pts_ppr") }
+
+# Get playoff brackets
+winners_bracket = client.get_league_playoff_bracket("league_id")
+losers_bracket = client.get_league_toilet_bowl("league_id")
+
+# Get league drafts
+league_drafts = client.get_league_drafts("league_id")
+
+# Get traded picks
+traded_picks = client.get_league_traded_picks("league_id")
 ```
 
-## Error Handling
+## Error Handling
 
 The gem provides comprehensive error handling:
 
 ```ruby
 begin
-  league = client.league("invalid_id")
-  # Process league data
-rescue SleeperApi::Error => e
-  puts "API Error: #{e.message}"
-rescue ArgumentError => e
-  puts "Invalid parameter: #{e.message}"
+  league = client.league("invalid_id")
+  # Process league data
+rescue SleeperApi::Error => e
+  puts "API Error: #{e.message}"
+rescue ArgumentError => e
+  puts "Invalid parameter: #{e.message}"
 end
 ```
 
 ### Error Types
 
-- SleeperApi::Error - API-related errors (404, 500, timeouts, etc.)
+- SleeperApi::Error - API-related errors (404, 500, timeouts, etc.)
 
-- ArgumentError - Invalid parameters passed to methods
+- ArgumentError - Invalid parameters passed to methods
 
 ## Performance Considerations
 
 ### Caching
 
-- Player data is cached for 24 hours to reduce API calls
+- Player data is cached for 24 hours to reduce API calls
 
-- League/User/Draft data is cached per instance
+- League/User/Draft data is cached per instance
 
-- Cache files are stored in the current working directory
+- Cache files are stored in the current working directory
 
-### Rate Limiting
+### Rate Limiting
 
-- Be mindful of Sleeper's rate limits: stay under 1000 API calls per minute
+- Be mindful of Sleeper's rate limits: stay under 1000 API calls per minute
 
-- The gem automatically handles timeouts and retries
+- The gem automatically handles timeouts and retries
 
 - Consider caching frequently accessed data in your application
 
 ### Memory Usage
 
-- Large datasets (like all players) are cached to disk
+- Large datasets (like all players) are cached to disk
 
-- League rosters and matchups are fetched lazily
+- League rosters and matchups are fetched lazily
 
-- Use no_data: true when initializing leagues if you don't need immediate data
+- Use no_data: true when initializing leagues if you don't need immediate data
 
 ## Testing
 
 The gem includes comprehensive tests:
 
 ```shellscript
-# Run all tests
-bundle exec rspec
-# Run with coverage
-bundle exec rspec --coverage
-# Run specific test file
-bundle exec rspec spec/sleeper_api/client_spec.rb
+# Run all tests
+bundle exec rspec
+# Run with coverage
+bundle exec rspec --coverage
+# Run specific test file
+bundle exec rspec spec/sleeper_api/client_spec.rb
 ```
 
 ### Setup
 
 ```shellscript
-git clone https://github.com/eruity1/sleeper_api.git
-cd sleeper_api
-bundle install
+git clone https://github.com/eruity1/sleeper_api.git
+cd sleeper_api
+bundle install
 ```
 
 ### Code Quality
 
 ```shellscript
-# Run all checks (tests + linting)
-bundle exec rake ci
+# Run all checks (tests + linting)
+bundle exec rake ci
 
-# Run RuboCop
-bundle exec rubocop
+# Run RuboCop
+bundle exec rubocop
 
-# Auto-fix RuboCop issues
-bundle exec rubocop -a
+# Auto-fix RuboCop issues
+bundle exec rubocop -a
 ```
 
 ### Contributing
@@ -426,24 +444,24 @@ bundle exec rubocop -a
 
 ### Development Dependencies
 
-- rspec - Testing framework
+- rspec - Testing framework
 
-- rubocop - Code style and quality
+- rubocop - Code style and quality
 
-- simplecov - Test coverage
+- simplecov - Test coverage
 
-- webmock - HTTP request mocking
+- webmock - HTTP request mocking
 
 ## Requirements
 
 - Ruby 2.6.0 or higher
 
-- No external dependencies (HTTParty is bundled)
+- No external dependencies (HTTParty is bundled)
 
 ## License
 
-The gem is available as open source under the terms of the MIT License.
+The gem is available as open source under the terms of the MIT License.
 
 ## Changelog
 
-See CHANGELOG.md for version history and updates.
+See CHANGELOG.md for version history and updates.

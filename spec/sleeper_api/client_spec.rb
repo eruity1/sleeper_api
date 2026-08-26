@@ -186,6 +186,84 @@ RSpec.describe SleeperApi::Client do
     #
     # `host_url` rather than `base_url` on purpose: a spec that built this URL
     # off base_url would be asserting the bug.
+    # Undocumented, found by probing on 2026-08-27 while the consuming app's
+    # backlog still recorded "Sleeper has no projections endpoint and no
+    # player-stats endpoint". Both exist, both under /v1.
+    #
+    # The important shared property: **nothing here 404s.** An unplayed week, a
+    # week out of range, and an unrecognised season type all answer 200 with
+    # `{}`. A caller cannot tell a typo from a legitimately empty week, so the
+    # gem returns what it got and the caller decides.
+    describe "#stats and #projections" do
+      let(:v1) { "https://api.sleeper.app/v1" }
+      let(:stats) do
+        { "4046" => { "pts_ppr" => 21.4, "rec" => 6.0, "off_snp" => 58.0 } }
+      end
+
+      it "fetches one week of stats" do
+        stub_request(:get, "#{v1}/stats/nfl/regular/2025/1").to_return(
+          status: 200, body: JSON.generate(stats),
+          headers: { "Content-Type" => "application/json" }
+        )
+
+        expect(client.stats(2025, week: 1).parsed_response).to eq(stats)
+      end
+
+      it "fetches one week of projections" do
+        stub_request(:get, "#{v1}/projections/nfl/regular/2026/1").to_return(
+          status: 200, body: JSON.generate(stats),
+          headers: { "Content-Type" => "application/json" }
+        )
+
+        expect(client.projections(2026, week: 1).parsed_response).to eq(stats)
+      end
+
+      # Dropping the week segment gives season totals — a different resource at
+      # a shorter path, not a default of week 1.
+      it "fetches season totals when no week is given" do
+        stub_request(:get, "#{v1}/stats/nfl/regular/2025").to_return(
+          status: 200, body: JSON.generate(stats),
+          headers: { "Content-Type" => "application/json" }
+        )
+
+        client.stats(2025)
+
+        expect(WebMock).to have_requested(:get, "#{v1}/stats/nfl/regular/2025")
+      end
+
+      it "takes a season type, because pre and post restart week numbering" do
+        stub_request(:get, "#{v1}/stats/nfl/post/2024/1").to_return(
+          status: 200, body: "{}", headers: { "Content-Type" => "application/json" }
+        )
+
+        client.stats(2024, week: 1, season_type: "post")
+
+        expect(WebMock).to have_requested(:get, "#{v1}/stats/nfl/post/2024/1")
+      end
+
+      # Confirmed live on 2026-08-27: regular/2026/1 answers `{}` because the
+      # season has not been played. Empty is a result, not an error.
+      it "treats an unplayed week as a result rather than an error" do
+        stub_request(:get, "#{v1}/stats/nfl/regular/2026/1").to_return(
+          status: 200, body: "{}", headers: { "Content-Type" => "application/json" }
+        )
+
+        expect(client.stats(2026, week: 1).parsed_response).to eq({})
+      end
+
+      it "escapes a season type that would otherwise traverse out of the path" do
+        stub_request(:get, "#{v1}/stats/nfl/..%2F..%2Fplayers%2Fnfl/2025/1").to_return(
+          status: 200, body: "{}", headers: { "Content-Type" => "application/json" }
+        )
+
+        client.stats(2025, week: 1, season_type: "../../players/nfl")
+
+        expect(WebMock).to have_requested(
+          :get, "#{v1}/stats/nfl/..%2F..%2Fplayers%2Fnfl/2025/1"
+        )
+      end
+    end
+
     describe "#schedule" do
       let(:host_url) { "https://api.sleeper.app" }
       let(:games) do

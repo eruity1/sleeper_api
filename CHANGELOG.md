@@ -1,3 +1,25 @@
+## [1.3.0] - 2026-08-27
+
+### Added
+
+- `Client#stats(season, week:, season_type:, sport:)` and `Client#projections(...)` — per-player weekly statistics and projections, both undocumented, both under `/v1`. Found by probing on 2026-08-27; the consuming app's backlog had recorded "Sleeper has no projections endpoint and no player-stats endpoint" as settled fact, and several of its cards were blocked on that.
+
+  Each returns an object keyed by player id — plus `TEAM_XXX` keys for team-level rows — holding raw counting stats (`rec`, `rush_yd`, `off_snp`, `rec_rz_tgt`, …) alongside Sleeper's canned `pts_ppr` / `pts_half_ppr` / `pts_std`. 228 distinct fields were observed across one week of 2025. Omitting `week` requests season totals, which is a shorter path and a different resource rather than a default of week 1.
+
+  Three things a caller has to know, all confirmed live:
+
+  - **Nothing 404s.** An unplayed week (`regular/2026/1`), a week out of range (`regular/2025/99`) and an unrecognised season type (`banana`) all answer 200 with `{}`. An empty body is indistinguishable from a typo, so validate arguments rather than trusting emptiness.
+  - **A row count is not evidence of a projection.** `projections` for a season Sleeper has not projected still returns a full set of entries — 9,386 for 2030 — every one holding only `{"adp_dd_ppr" => 1000.0}` and no `pts_ppr`. Filter on the field you want.
+  - **`pre` and `post` restart week numbering at 1**, exactly as `#schedule` does, so rows from different season types must never be pooled.
+
+  `adp_dd_ppr` 1000.0 and `pos_rank_*` 999.0 are "unknown" sentinels rather than values.
+
+  Path segments are escaped, unlike the older `#get_user` — an unescaped segment can walk out of the endpoint entirely, which the consuming app had to work around at its own boundary.
+
+### Fixed
+
+- README.md contained 272 non-breaking spaces across 90 lines, 58 of them **inside `​```ruby` code fences** — so the documented examples raised a syntax error when copy-pasted. `lib/` and `spec/` were unaffected; only the documentation was broken. Replaced with ordinary spaces.
+
 ## [1.2.0] - 2026-08-23
 
 ### Added

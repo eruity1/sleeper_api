@@ -1,5 +1,6 @@
 require "httparty"
 require "json"
+require "erb"
 
 module SleeperApi
   # HTTP client for Sleeper API requests.
@@ -209,6 +210,54 @@ module SleeperApi
       end
     end
 
+    # Get per-player statistics for one week, or for a whole season.
+    #
+    # Undocumented. Returns an object keyed by player id — plus `TEAM_XXX` keys
+    # for team-level rows — each holding raw counting stats (`rec`, `rush_yd`,
+    # `off_snp`, `rec_rz_tgt`…) alongside Sleeper's three canned point totals
+    # `pts_ppr` / `pts_half_ppr` / `pts_std`. 228 distinct fields were observed
+    # across one week of 2025.
+    #
+    # **Nothing here 404s.** An unplayed week, a week out of range, and an
+    # unrecognised season type all answer 200 with `{}`, so an empty result is
+    # a legitimate answer and is indistinguishable from a typo. Validate the
+    # arguments before you trust an empty body.
+    #
+    # Omitting `week` requests season totals, which is a different resource at
+    # a shorter path rather than a default of week 1.
+    #
+    # `pre` and `post` restart week numbering at 1, exactly as #schedule does,
+    # so rows from different season types must never be pooled.
+    #
+    # @param season [Integer, String] Season year, e.g. 2025
+    # @param week [Integer, String, nil] Week number, or nil for season totals
+    # @param season_type [String] "regular" (default), "pre", or "post"
+    # @param sport [String] Sport code (default: "nfl")
+    # @return [HTTParty::Response] Player id to stats mapping
+    def stats(season, week: nil, season_type: "regular", sport: "nfl")
+      make_request(weekly_path("stats", sport, season_type, season, week))
+    end
+
+    # Get per-player projections for one week, or for a whole season.
+    #
+    # Same shape and same caveats as #stats, with one of its own: for a season
+    # Sleeper has not projected, this still returns a full set of entries —
+    # 9,386 of them for 2030 — every one holding only `{"adp_dd_ppr" => 1000.0}`
+    # and no `pts_ppr` at all. **A row count is not evidence of a projection.**
+    # Filter on the field you actually want.
+    #
+    # `adp_dd_ppr` 1000.0 and `pos_rank_*` 999.0 are "unknown" sentinels rather
+    # than values.
+    #
+    # @param season [Integer, String] Season year, e.g. 2026
+    # @param week [Integer, String, nil] Week number, or nil for season totals
+    # @param season_type [String] "regular" (default), "pre", or "post"
+    # @param sport [String] Sport code (default: "nfl")
+    # @return [HTTParty::Response] Player id to projections mapping
+    def projections(season, week: nil, season_type: "regular", sport: "nfl")
+      make_request(weekly_path("projections", sport, season_type, season, week))
+    end
+
     # Get a season's game schedule.
     #
     # Undocumented, and served from the host root rather than /v1 — hence the
@@ -270,6 +319,20 @@ module SleeperApi
     end
 
     private
+
+    # Path for #stats and #projections. Segments are escaped because they are
+    # interpolated into a URI path: an unescaped one can walk out of the
+    # endpoint entirely, which is the bug the consuming app had to work around
+    # for #get_user.
+    #
+    # A nil week drops the segment rather than defaulting, because the shorter
+    # path is season totals.
+    def weekly_path(resource, sport, season_type, season, week)
+      segments = [resource, sport, season_type, season, week].compact
+      escaped = segments.map { |segment| ERB::Util.url_encode(segment.to_s) }
+
+      "/v1/#{escaped.join("/")}"
+    end
 
     # Make an HTTP request with retry logic and logging.
     #

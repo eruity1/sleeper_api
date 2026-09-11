@@ -266,9 +266,21 @@ RSpec.describe SleeperApi::Client do
 
     describe "#schedule" do
       let(:host_url) { "https://api.sleeper.app" }
+      # All four statuses Sleeper has been observed to send, in one fixture.
+      # It carried `pre_game` alone, which is a shape live data does produce
+      # but only ever on a quiet Tuesday: week 1 of 2026 held one `complete`,
+      # one `in_game` and fourteen `pre_game` at the same moment, and the
+      # canceled DAL/SEA in week 6 is real too. A fixture narrower than the
+      # API is how a caller ends up written against a vocabulary of one.
       let(:games) do
         [{ "status" => "pre_game", "date" => "2026-10-18", "home" => "GB",
-           "away" => "DAL", "week" => 6, "game_id" => "202610612" }]
+           "away" => "DAL", "week" => 6, "game_id" => "202610612" },
+         { "status" => "in_game", "date" => "2026-09-10", "home" => "LAR",
+           "away" => "SF", "week" => 1, "game_id" => "202610123" },
+         { "status" => "complete", "date" => "2026-09-09", "home" => "SEA",
+           "away" => "NE", "week" => 1, "game_id" => "202610130" },
+         { "status" => "canceled", "date" => "2026-10-18", "home" => "DAL",
+           "away" => "SEA", "week" => 6, "game_id" => "202610611" }]
       end
 
       it "fetches the regular season schedule from outside /v1" do
@@ -278,6 +290,21 @@ RSpec.describe SleeperApi::Client do
         )
 
         expect(client.schedule(2026).parsed_response).to eq(games)
+      end
+
+      # Untranslated and unfiltered. The status vocabulary is Sleeper's, it is
+      # open, and the caller is the only one who knows what to do with a value
+      # this gem has never seen — so a `canceled` game must arrive as a
+      # `canceled` game rather than be tidied away as "not a real fixture".
+      it "passes every status through, including ones it has no meaning for" do
+        stub_request(:get, "#{host_url}/schedule/nfl/regular/2026").to_return(
+          status: 200, body: JSON.generate(games),
+          headers: { "Content-Type" => "application/json" }
+        )
+
+        statuses = client.schedule(2026).parsed_response.map { |game| game["status"] }
+
+        expect(statuses).to eq(%w[pre_game in_game complete canceled])
       end
 
       it "takes a season type, because pre and post restart week numbering" do

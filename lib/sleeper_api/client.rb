@@ -22,6 +22,11 @@ module SleeperApi
     # pass to make_request.
     base_uri "https://api.sleeper.app"
 
+    # Not HTTParty's own. Its JSON branch passes `quirks_mode`, which json 3.0
+    # removed, so without this every response raises ArgumentError the moment a
+    # consumer resolves json 3. See JsonParser.
+    parser SleeperApi::JsonParser
+
     # @param config [SleeperApi::Configuration] Client configuration
     def initialize(config)
       @config = config

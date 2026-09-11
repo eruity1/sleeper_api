@@ -1,3 +1,26 @@
+## [Unreleased]
+
+### Fixed
+
+- **Every request raised `ArgumentError: unknown keyword: quirks_mode` under
+  `json` 3.0.** HTTParty 0.24.2 parses with `JSON.parse(body, quirks_mode:
+  true, allow_nan: true)`; json 3.0 removed that keyword. Total breakage rather
+  than a degradation, and it arrives through a transitive bump rather than
+  anything a consumer chose — this gem has no committed lockfile, so CI went
+  red with no commit in between. httparty 0.24.2 is the newest release and has
+  no fix.
+
+  `SleeperApi::JsonParser` subclasses `HTTParty::Parser` and overrides its
+  `json` method to drop the flag; `Client` parses with it. **Deliberately not a
+  `json < 3` pin in the gemspec**, which would fix the same crash by forbidding
+  every app that uses this gem from upgrading json at all, for a flag none of
+  them asked for.
+
+  `quirks_mode: true` allowed a bare scalar at the top level, which is not
+  academic here — Sleeper answers an unknown username with a literal `null`.
+  Both majors parse that correctly without it: `JSON.parse("null")` is `nil`
+  under 2.21.2 and under 3.0.2. The suite passes under both.
+
 ## [1.3.0] - 2026-08-27
 
 ### Added

@@ -44,6 +44,22 @@ Four layers, with a deliberate split between HTTP and modeling:
 
 **Never fan out `get_players`.** It's a multi-megabyte payload of every NFL player. It's cached for 24h in an ivar on the client instance — which means the cache dies with the client. Consumers holding a short-lived client re-download it every time.
 
+### Undocumented endpoints carry undocumented vocabularies
+
+Sleeper publishes no field reference, so every enum this gem passes through was
+found by looking. Four are known — `#schedule`'s game `status`, `Player`'s
+`status` and `injury_status`, and a roster's `lineup_position` — and **none of
+them is closed**. Match with a fallback rather than a whitelist, and never
+translate one into a vocabulary of this gem's own: the caller is the only one
+who knows what to do with a value nobody has seen.
+
+**When a value is measured, name it in the docstring and put the date and the
+circumstance next to it.** `in_game` shipped as an unnamed fallback in the
+consuming app for a day before anyone saw a live game; the fallback was right,
+and the thing that made it a fact rather than a guess was writing down that it
+was read at 21:13 on 2026-09-10 during a specific game. A vocabulary with no
+provenance is indistinguishable from one somebody assumed.
+
 ## Testing
 
 RSpec + WebMock, with `WebMock.disable_net_connect!` — **specs must never hit the network**. Stub with `stub_request` (see `client_spec.rb`) or `instance_double(SleeperApi::Client)` for resource-object specs (see `league_spec.rb`).

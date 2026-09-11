@@ -228,6 +228,14 @@ module SleeperApi
     # a legitimate answer and is indistinguishable from a typo. Validate the
     # arguments before you trust an empty body.
     #
+    # **A week still being played answers with a partial set, and says nothing
+    # about being partial.** Mid-week-1 of 2026 this returned 301 rows with
+    # only 42 carrying a `pts_ppr` — the two teams whose games had finished or
+    # started. A caller that treats "the week's stats" as the whole week gets a
+    # half-filled answer for as long as the week is in progress, which for a
+    # regular-season week is most of five days. #schedule's per-game `status`
+    # is the only thing that can tell a missing row from a scoreless one.
+    #
     # Omitting `week` requests season totals, which is a different resource at
     # a shorter path rather than a default of week 1.
     #
@@ -254,6 +262,20 @@ module SleeperApi
     # `adp_dd_ppr` 1000.0 and `pos_rank_*` 999.0 are "unknown" sentinels rather
     # than values.
     #
+    # ⚠️ **This is a pre-game, whole-game projection and it does not move while
+    # the game is played.** Measured on 2026-09-10 across six hours spanning a
+    # kickoff: five players in that night's game held the same `pts_ppr` before
+    # it started and while it was in progress, to the decimal. Checked again
+    # against a game that had already finished — the projection still read
+    # 19.69 for a player who had scored 26.2, so it does not settle onto the
+    # final either.
+    #
+    # That matters because it is the natural thing to reach for and the wrong
+    # one: **there is no live projection here**, so nothing in this payload can
+    # say whether a player is on pace. A player on 8 points of a projected 12
+    # in the first quarter is ahead of schedule, and this endpoint will report
+    # 12 all afternoon.
+    #
     # @param season [Integer, String] Season year, e.g. 2026
     # @param week [Integer, String, nil] Week number, or nil for season totals
     # @param season_type [String] "regular" (default), "pre", or "post"
@@ -273,6 +295,26 @@ module SleeperApi
     # derives exactly, but only within one season type — `pre` (weeks 1-3) and
     # `post` (weeks 1-4) restart week numbering, so games from different season
     # types must never be pooled.
+    #
+    # **`status` is `pre_game`, `in_game`, `complete` or `canceled`**, observed
+    # across the 2025 and 2026 regular seasons. `in_game` was read off a live
+    # game on 2026-09-10; the other three come from the published schedule. It
+    # is the only per-game signal of whether a game has been played — there is
+    # no kickoff time anywhere in this payload, only `date`, so a caller can
+    # know that a game is under way but never how far into it.
+    #
+    # **A week is not one event, and a caller reasoning from `date` alone will
+    # get that wrong.** Week 1 of 2026 held all three live states at the same
+    # moment: one `complete`, one `in_game`, fourteen `pre_game`.
+    #
+    # Treat the four as an open vocabulary. A postponement or a suspension
+    # would be a fifth value and none has been seen, so match with a fallback
+    # rather than a whitelist.
+    #
+    # **A team can carry two games in one week.** 2026 lists a canceled DAL/SEA
+    # in week 6 that was superseded rather than called off, and both teams play
+    # someone else that week. Order by status before picking one, or you will
+    # hand a team a bye it does not have.
     #
     # A season Sleeper has not scheduled yet answers 200 with an empty array
     # rather than 404, so an empty result is a legitimate answer and not an

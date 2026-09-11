@@ -21,6 +21,49 @@
   Both majors parse that correctly without it: `JSON.parse("null")` is `nil`
   under 2.21.2 and under 3.0.2. The suite passes under both.
 
+### Documented
+
+Three facts measured against the live API on 2026-09-10, while NFL week 1 was
+half-played — one game finished, one being played, fourteen not yet started.
+No behaviour changed; all three are things a caller could previously only find
+out by being wrong first.
+
+- **`#schedule`'s `status` values are named: `pre_game`, `in_game`, `complete`,
+  `canceled`.** `in_game` was read off a live game; the other three come from
+  the published 2025 and 2026 schedules. It is the only per-game signal that a
+  game has been played — this payload has a `date` and no kickoff time, so a
+  caller can know a game is under way but never how far into it. **A week is
+  not one event**: week 1 of 2026 held three of those states at once, so
+  reasoning about "has the week started" from `date` alone gets it wrong for
+  everyone whose game is on Sunday. Treat the four as open and match with a
+  fallback — a postponement would be a fifth and none has been seen.
+
+- **`#projections` is a pre-game, whole-game projection that does not move
+  while the game is played.** Five players in one night's game held the same
+  `pts_ppr` to the decimal across six hours spanning its kickoff; a game that
+  had already finished still projected 19.69 for a player who scored 26.2, so
+  it does not settle onto the final either. This is the natural endpoint to
+  reach for when building anything live, and it cannot answer the question:
+  **there is no live projection here**, so nothing in this payload says whether
+  a player is on pace. A player on 8 of a projected 12 in the first quarter is
+  ahead of schedule, and this reports 12 all afternoon.
+
+- **`#stats` answers a week still being played with a partial set, and says
+  nothing about being partial.** Mid-week-1 it returned 301 rows with 42
+  carrying a `pts_ppr`. That is distinct from the already-documented empty
+  week: a caller treating "the week's stats" as the whole week gets a
+  half-filled answer for as long as the week is in progress, which for a
+  regular-season week is most of five days. `#schedule`'s per-game `status` is
+  the only thing that tells a missing row from a scoreless one.
+
+### Changed
+
+- `#schedule`'s spec fixture carries all four statuses rather than `pre_game`
+  alone, and an example pins that they pass through untranslated. The narrow
+  fixture was a shape live data produces only on a quiet Tuesday, and a fixture
+  narrower than the API is how a caller ends up written against a vocabulary of
+  one.
+
 ## [1.3.0] - 2026-08-27
 
 ### Added

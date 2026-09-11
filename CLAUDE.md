@@ -19,7 +19,7 @@ bundle exec rubocop -A     # autocorrect
 bin/console                # IRB with the gem loaded
 ```
 
-CI (`.github/workflows/ci.yml`) runs `bundle exec rake ci` on Ruby 3.2 only. The gemspec claims `required_ruby_version >= 2.6.0` and RuboCop targets 2.6, but nothing tests below 3.2 — treat 2.6 compatibility as unverified.
+CI (`.github/workflows/ci.yml`) runs `bundle exec rake ci` on Ruby 3.2 and 3.4. The gemspec claims `required_ruby_version >= 2.6.0` and RuboCop targets 2.6, but nothing tests below 3.2 — treat 2.6 compatibility as unverified.
 
 ## Architecture
 
@@ -53,6 +53,24 @@ RSpec + WebMock, with `WebMock.disable_net_connect!` — **specs must never hit 
 **SimpleCov must start before `require "sleeper_api"`.** It previously started after, which meant zero lines were instrumented and `minimum_coverage 90` passed vacuously on 0/0. Don't reorder those requires back — it silently disables the gate rather than failing loudly.
 
 `lib/` is at 100% line coverage. Every bug found in this gem so far has been in a `League#format_*` method handling a field Sleeper omitted, exercised only by real data. When adding a formatter, write the nil-field case first.
+
+### There is no committed Gemfile.lock, so CI resolves fresh every run
+
+That is right for a library — a lockfile would hide exactly the incompatibility
+a consumer is going to hit — but it has a consequence worth naming: **a green
+run does not stay green.** A transitive release can turn CI red with no commit
+in between, and the first PR opened afterwards looks like the culprit.
+
+`json` 3.0 did this on 2026-09-11. It removed `quirks_mode`, which
+`httparty` 0.24.2 passes on every JSON parse, so 11 examples began raising
+`ArgumentError: unknown keyword: quirks_mode` — on a documentation-only PR that
+touched no code. Check whether `main` is red before reading a failure as the
+branch's fault; `main`'s last run can be weeks old.
+
+`SleeperApi::JsonParser` is the fix, and it is worth reading before reaching for
+a version pin: the gem overrides the one broken method rather than constraining
+`json` in the gemspec, because a constraint there would forbid every consuming
+app from upgrading `json` for a flag none of them asked for.
 
 ## Release
 

@@ -22,6 +22,12 @@ module SleeperApi
   # `JSON.parse("null")` is `nil` under json 2.21.2 and under 3.0.2. The flag
   # has been doing nothing for this gem for some time.
   #
+  # **@api private.** It is public only because `parser` has to name something
+  # a consumer's Ruby can resolve. Nothing here is a promise: it exists to be
+  # deleted the day httparty parses without the flag, and it is why 1.3.1 is a
+  # patch rather than a minor — a new constant that is not API does not earn
+  # one, and a fix for total breakage should reach a `~> 1.3.0` pin.
+  #
   # A subclass rather than a `parser` lambda, because everything else in
   # `HTTParty::Parser#parse` still applies — the blank-body guard, the format
   # detection, the supported-format table. One method is wrong; one method is

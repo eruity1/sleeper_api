@@ -22,6 +22,12 @@ module SleeperApi
     # pass to make_request.
     base_uri "https://api.sleeper.app"
 
+    # ⚠️ **The other Sleeper host.** The web app talks to `api.sleeper.com`,
+    # which serves *richer rows from same-looking paths* — see
+    # #stats_with_context. Reached per-request rather than by moving base_uri,
+    # because every other endpoint here lives on `.app`.
+    WEB_HOST = "https://api.sleeper.com".freeze
+
     # Not HTTParty's own. Its JSON branch passes `quirks_mode`, which json 3.0
     # removed, so without this every response raises ArgumentError the moment a
     # consumer resolves json 3. See JsonParser.
@@ -285,6 +291,55 @@ module SleeperApi
       make_request(weekly_path("projections", sport, season_type, season, week))
     end
 
+    # Get one week's stat lines **with the context of the week they were played
+    # in** — the player's team *that week*, their opponent, the game and its
+    # date. Probed 2026-09-08, re-probed 2026-09-14.
+    #
+    # ⚠️ **A different host: `api.sleeper.com`, not `api.sleeper.app`.** The
+    # `.app` endpoint #stats calls returns the *same stat lines with none of
+    # this metadata*, which is why it can be there for years without anyone
+    # finding it. Same sport and season in the path, but no `/v1` and the
+    # season type is a query parameter rather than a segment.
+    #
+    # **What is genuinely per-week, measured** over the 2,275 players present in
+    # both week 1 and week 16 of 2021: `team` differs on **164** of them (a
+    # midseason trade is a real change of team) and `opponent` on **2,262**. So
+    # both are history rather than today's catalog.
+    #
+    # ⚠️ **The nested `player` object is NOT history.** It is the current
+    # catalog record stapled on — `player.team` is null inside it, and
+    # `injury_status` differed on 1 of the 204 rows carrying one across fifteen
+    # weeks, which is the signature of a field that does not vary by week at
+    # all. A 2021 row reporting "Questionable" is reporting that he is
+    # questionable *now*. The top-level `status` is null on every row seen.
+    #
+    # ⚠️ **Pass a week.** Dropping it answers season totals — 8,251 rows for
+    # 2021 — with `week` and `opponent` null on every one, so the season form
+    # carries none of the context this endpoint exists for.
+    #
+    # Shares #stats' traps: nothing 404s (an unplayed 2026 week, a week out of
+    # range, a season before Sleeper's history and a garbage season type all
+    # answer `200` with `[]`), and `pre`/`post` restart week numbering — 2021
+    # `post` week 1 is the wildcard round, played 2022-01-15.
+    #
+    # **An array, not a hash.** #stats keys by player id; this returns a list of
+    # rows each carrying `player_id`, so a caller indexing it must build its own
+    # map. `/projections/nfl/{season}/{week}` on the same host answers the same
+    # shape (9,420 rows for 2021 week 16) and has no wrapper here yet.
+    #
+    # @param season [Integer, String] Season year, e.g. 2021
+    # @param week [Integer, String] Week number — required, see above
+    # @param season_type [String] "regular" (default), "pre", or "post"
+    # @param sport [String] Sport code (default: "nfl")
+    # @return [HTTParty::Response] Array of stat lines, each with `team`,
+    #   `opponent`, `game_id`, `date`, `week`, `season` and a nested `player`
+    def stats_with_context(season, week, season_type: "regular", sport: "nfl")
+      segments = [sport, season, week].map { |segment| ERB::Util.url_encode(segment.to_s) }
+      query = ERB::Util.url_encode(season_type.to_s)
+
+      make_request("/stats/#{segments.join("/")}?season_type=#{query}", host: WEB_HOST)
+    end
+
     # Get a season's game schedule.
     #
     # Undocumented, and served from the host root rather than /v1 — hence the
@@ -383,29 +438,45 @@ module SleeperApi
 
     # Make an HTTP request with retry logic and logging.
     #
+    # ⚠️ **`host:` cannot be done by passing an absolute URL instead.** HTTParty
+    # 0.24 raises `UnsafeURIError` for any URL whose host differs from the
+    # configured `base_uri` — "this request could send credentials to an
+    # unintended server" — so a second host has to arrive as its own
+    # `base_uri`, which is a per-request option it supports.
+    #
+    # **The error and the log name the host whenever it is not the default.**
+    # `/stats/nfl/2021/16` is a real path on both hosts and they return
+    # different things, so a message quoting the path alone cannot say which
+    # one failed. Paths on the default host quote exactly as they always have.
+    #
     # @param path [String] API endpoint path
+    # @param host [String, nil] a different host, e.g. WEB_HOST
     # @return [HTTParty::Response]
     # @raise [SleeperApi::Error] On HTTP errors or timeouts
-    def make_request(path)
-      @config.logger&.info("Making request to #{self.class.base_uri}#{path}")
+    def make_request(path, host: nil)
+      named = host ? "#{host}#{path}" : path
+      options = { timeout: @config.timeout }
+      options[:base_uri] = host if host
+
+      @config.logger&.info("Making request to #{host || self.class.base_uri}#{path}")
       retries = 0
       begin
-        response = self.class.get(path, timeout: @config.timeout)
+        response = self.class.get(path, **options)
         if response.success?
-          @config.logger&.info("Successful response for #{path}")
+          @config.logger&.info("Successful response for #{named}")
           response
         else
-          @config.logger&.error("Failed to fetch #{path}: #{response.code}")
-          raise SleeperApi::Error, "Failed to fetch #{path}: #{response.code}"
+          @config.logger&.error("Failed to fetch #{named}: #{response.code}")
+          raise SleeperApi::Error, "Failed to fetch #{named}: #{response.code}"
         end
       rescue Net::OpenTimeout, Net::ReadTimeout => e
         retries += 1
         if retries <= @config.retries
-          @config.logger&.warn("Retrying #{path} (attempt #{retries}/#{@config.retries}) due to #{e}")
+          @config.logger&.warn("Retrying #{named} (attempt #{retries}/#{@config.retries}) due to #{e}")
           sleep(1)
           retry
         else
-          @config.logger&.error("Request timed out for #{path} after #{retries} retries")
+          @config.logger&.error("Request timed out for #{named} after #{retries} retries")
           raise SleeperApi::Error, "Request timed out after #{retries} retries"
         end
       end

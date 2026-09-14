@@ -29,6 +29,27 @@ Four layers, with a deliberate split between HTTP and modeling:
 - **`Client`** — the only thing that talks HTTP. `include HTTParty` with `base_uri "https://api.sleeper.app"` — **the bare host; the `/v1` lives in each path**. That is deliberate and load-bearing: not every Sleeper endpoint is versioned. `/schedule/{sport}/{season_type}/{season}` is served from the host root, and while `base_uri` carried the version that endpoint was unreachable at any path a caller could pass in. A new endpoint spells out where it lives; do not move the version back into `base_uri` to shorten the paths.
 
   Every call funnels through the private `make_request`, which handles retry-on-timeout, logging, and converts non-2xx into `SleeperApi::Error`. **That error quotes the path**, so the path prefix is part of a public string — v1.2.0 changed it from `"Failed to fetch /user/x: 404"` to `"Failed to fetch /v1/user/x: 404"`. `Client` also owns the 24-hour in-memory player cache.
+
+  ⚠️ **There are two Sleeper hosts and v1.4.0 added the second.** `WEB_HOST`
+  (`https://api.sleeper.com`) is the one the web app uses, and it serves
+  **richer rows from same-looking paths**: `#stats_with_context` returns the
+  player's team *that week* and their opponent, while `#stats` on `.app`
+  returns the same stat lines with neither. Reached with `make_request(path,
+  host: WEB_HOST)` rather than by moving `base_uri`, because every other
+  endpoint lives on `.app`.
+
+  **Passing an absolute URL instead does not work**, and the failure is not
+  subtle: HTTParty 0.24 raises `UnsafeURIError` for any URL whose host differs
+  from the configured `base_uri` — *"this request could send credentials to an
+  unintended server"* — so a second host must arrive as its own per-request
+  `base_uri`. **The error and the log name the host whenever it is not the
+  default**, because `/stats/nfl/2021/16` is a real path on both and they
+  return different things; paths on `.app` quote exactly as they did before.
+
+  **When an endpoint almost has what you need, try the other host before
+  concluding the data does not exist.** Four epics of stats work in the
+  consuming app never surfaced the per-week team, because the documented-looking
+  path on `.app` answers 200 with a payload that simply omits it.
 - **`League` / `User` / `Draft`** — resource objects. Each takes `(id, client)`, fetches eagerly in the constructor, memoizes into ivars, and exposes formatted hashes.
 - **`Helpers`** — mixed into all four. `deep_symbolize_keys` plus `player_details`, which reaches through `@client` — so any class including it must define `@client`.
 

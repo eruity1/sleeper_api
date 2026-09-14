@@ -264,6 +264,96 @@ RSpec.describe SleeperApi::Client do
       end
     end
 
+    # ⚠️ **The other host.** `api.sleeper.com` serves the same stat lines with
+    # the week's team and opponent on them; the `.app` endpoint above serves
+    # them with neither. Probed 2026-09-08, re-probed 2026-09-14.
+    describe "#stats_with_context" do
+      let(:web) { "https://api.sleeper.com" }
+      let(:rows) do
+        [{ "player_id" => "2992", "team" => "TEN", "opponent" => "SF", "week" => 16,
+           "game_id" => "202111634", "date" => "2021-12-23",
+           "player" => { "position" => "QB", "team" => nil } }]
+      end
+
+      it "fetches a week from the web host, not the one every other call uses" do
+        stub_request(:get, "#{web}/stats/nfl/2021/16?season_type=regular").to_return(
+          status: 200, body: JSON.generate(rows),
+          headers: { "Content-Type" => "application/json" }
+        )
+
+        expect(client.stats_with_context(2021, 16).parsed_response).to eq(rows)
+      end
+
+      # The whole reason this exists: `api.sleeper.app` must never be asked for
+      # it, because it answers 200 with stat lines carrying none of the context.
+      it "never reaches the api host" do
+        stub_request(:get, "#{web}/stats/nfl/2021/16?season_type=regular").to_return(
+          status: 200, body: "[]", headers: { "Content-Type" => "application/json" }
+        )
+
+        client.stats_with_context(2021, 16)
+
+        expect(WebMock).not_to have_requested(:get, /api\.sleeper\.app/)
+      end
+
+      # No /v1, and the season type is a query parameter rather than a segment.
+      it "takes a season type, because pre and post restart week numbering" do
+        stub_request(:get, "#{web}/stats/nfl/2021/1?season_type=post").to_return(
+          status: 200, body: "[]", headers: { "Content-Type" => "application/json" }
+        )
+
+        client.stats_with_context(2021, 1, season_type: "post")
+
+        expect(WebMock).to have_requested(:get, "#{web}/stats/nfl/2021/1?season_type=post")
+      end
+
+      # Confirmed live 2026-09-14: an unplayed 2026 week, a week out of range, a
+      # season before Sleeper's history and a garbage season type all answer
+      # 200 with an empty array. Empty is a result, not an error.
+      it "treats an unplayed week as a result rather than an error" do
+        stub_request(:get, "#{web}/stats/nfl/2026/5?season_type=regular").to_return(
+          status: 200, body: "[]", headers: { "Content-Type" => "application/json" }
+        )
+
+        expect(client.stats_with_context(2026, 5).parsed_response).to eq([])
+      end
+
+      it "escapes a season type that would otherwise leave the query" do
+        stub_request(:get, "#{web}/stats/nfl/2021/16?season_type=regular%26sport%3Dnba")
+          .to_return(status: 200, body: "[]", headers: { "Content-Type" => "application/json" })
+
+        client.stats_with_context(2021, 16, season_type: "regular&sport=nba")
+
+        expect(WebMock).to have_requested(
+          :get, "#{web}/stats/nfl/2021/16?season_type=regular%26sport%3Dnba"
+        )
+      end
+
+      it "escapes a week that would otherwise traverse out of the path" do
+        stub_request(:get, "#{web}/stats/nfl/2021/..%2F..%2Fplayers%2Fnfl?season_type=regular")
+          .to_return(status: 200, body: "[]", headers: { "Content-Type" => "application/json" })
+
+        client.stats_with_context(2021, "../../players/nfl")
+
+        expect(WebMock).to have_requested(
+          :get, "#{web}/stats/nfl/2021/..%2F..%2Fplayers%2Fnfl?season_type=regular"
+        )
+      end
+
+      # ⚠️ `/stats/nfl/2021/16` is a real path on BOTH hosts and they return
+      # different things, so an error quoting the path alone cannot say which
+      # one failed.
+      it "names the host in the error, which a path alone cannot" do
+        stub_request(:get, "#{web}/stats/nfl/2021/16?season_type=regular")
+          .to_return(status: 503, body: "")
+
+        expect { client.stats_with_context(2021, 16) }.to raise_error(
+          SleeperApi::Error,
+          "Failed to fetch #{web}/stats/nfl/2021/16?season_type=regular: 503"
+        )
+      end
+    end
+
     describe "#schedule" do
       let(:host_url) { "https://api.sleeper.app" }
       # All four statuses Sleeper has been observed to send, in one fixture.

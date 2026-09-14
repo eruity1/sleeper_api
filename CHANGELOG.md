@@ -1,3 +1,45 @@
+## [1.4.0] - 2026-09-14
+
+### Added
+
+- **`Client#stats_with_context(season, week)` — one week's stat lines carrying
+  the week they were played in.** Each row has the player's team *that week*,
+  their `opponent`, the `game_id` and the `date`, which the existing `#stats`
+  endpoint does not return at all.
+
+  ⚠️ **It is served from a different host: `api.sleeper.com`, not
+  `api.sleeper.app`.** Same sport and season in the path, no `/v1`, and the
+  season type is a query parameter rather than a segment. The `.app` endpoint
+  answers the *same stat lines with none of this metadata*, which is how it sat
+  unfound through four epics of stats work in the consuming app.
+
+  **What is genuinely per-week, measured** over the 2,275 players present in
+  both week 1 and week 16 of 2021: `team` differs on **164** of them and
+  `opponent` on **2,262**. ⚠️ **The nested `player` object is not history** — it
+  is the current catalog record stapled on, with `team` null inside it and
+  `injury_status` differing on 1 of the 204 rows carrying one across those
+  fifteen weeks. A 2021 row reporting "Questionable" is reporting that he is
+  questionable *now*.
+
+  ⚠️ **Pass a week.** Dropping it answers season totals — 8,251 rows for 2021 —
+  with `week` and `opponent` null on every one, so the season form carries none
+  of the context the endpoint exists for. Shares `#stats`' traps otherwise:
+  nothing 404s, and `pre`/`post` restart week numbering. An array of rows, not
+  a hash keyed by player id.
+
+### Changed
+
+- **`make_request` takes an optional `host:`**, which is how the second host is
+  reached. ⚠️ **Passing an absolute URL instead does not work**: HTTParty 0.24
+  raises `UnsafeURIError` for any URL whose host differs from the configured
+  `base_uri` — "this request could send credentials to an unintended server" —
+  so a second host has to arrive as its own per-request `base_uri`.
+
+  **Errors and logs now name the host whenever it is not the default.**
+  `/stats/nfl/2021/16` is a real path on both hosts and they return different
+  things, so a message quoting the path alone cannot say which one failed.
+  Messages for paths on `api.sleeper.app` are byte-for-byte what they were.
+
 ## [1.3.1] - 2026-09-10
 
 ### Fixed

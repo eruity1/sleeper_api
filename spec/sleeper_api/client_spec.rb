@@ -541,6 +541,57 @@ RSpec.describe SleeperApi::Client do
       end
     end
 
+    # 1.5.1. A laptop waking with no DNS raised SocketError straight through
+    # make_request, so a caller rescuing SleeperApi::Error never saw an outage:
+    # 196 failed imports in one consumer, retried by nothing it controlled.
+    context "when the connection itself fails" do
+      [
+        SocketError.new("Failed to open TCP connection to api.sleeper.app:443 " \
+                        "(getaddrinfo: nodename nor servname provided, or not known)"),
+        Errno::ECONNREFUSED.new("connect(2) for \"api.sleeper.app\" port 443"),
+        Errno::ECONNRESET.new,
+        Errno::EHOSTUNREACH.new,
+        OpenSSL::SSL::SSLError.new("SSL_connect returned=1 errno=0"),
+        EOFError.new("end of file reached")
+      ].each do |error|
+        it "raises SleeperApi::Error for #{error.class}, naming the path" do
+          stub_request(:get, /#{base_url}.*/).to_raise(error)
+
+          expect { client.get_user("testuser") }
+            .to raise_error(SleeperApi::Error, %r{\ACould not reach /v1/user/testuser: #{Regexp.escape(error.message)}})
+        end
+      end
+
+      # Only a timeout is worth the gem's blocking retry. A refused or
+      # unresolvable connection answers at once, and the caller's backoff is
+      # the one that can wait long enough to matter.
+      it "does not retry, whatever retries is set to" do
+        config = SleeperApi::Configuration.new
+        config.retries = 3
+        stub_request(:get, /#{base_url}.*/).to_raise(SocketError.new("getaddrinfo"))
+
+        expect { described_class.new(config).get_user("testuser") }.to raise_error(SleeperApi::Error)
+        expect(WebMock).to have_requested(:get, "#{base_url}/user/testuser").once
+      end
+
+      it "names the other host for a WEB_HOST call" do
+        stub_request(:get, /api\.sleeper\.com/).to_raise(SocketError.new("getaddrinfo"))
+
+        expect { client.scores(2026, 3) }
+          .to raise_error(SleeperApi::Error, %r{Could not reach https://api\.sleeper\.com/scores})
+      end
+
+      it "logs it when a logger is configured" do
+        logger = instance_spy(Logger)
+        config = SleeperApi::Configuration.new
+        config.logger = logger
+        stub_request(:get, /#{base_url}.*/).to_raise(Errno::ECONNREFUSED.new)
+
+        expect { described_class.new(config).get_user("testuser") }.to raise_error(SleeperApi::Error)
+        expect(logger).to have_received(:error).with(/Could not reach/)
+      end
+    end
+
     context "when request times out" do
       let(:config) do
         config = SleeperApi::Configuration.new

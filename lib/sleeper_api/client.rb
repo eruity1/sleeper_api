@@ -1,4 +1,5 @@
 require "httparty"
+require "openssl"
 require "json"
 require "erb"
 
@@ -27,6 +28,12 @@ module SleeperApi
     # #stats_with_context. Reached per-request rather than by moving base_uri,
     # because every other endpoint here lives on `.app`.
     WEB_HOST = "https://api.sleeper.com".freeze
+
+    # The request never got an answer (1.5.1): no DNS, a refused or reset
+    # connection, a failed TLS handshake, a socket closed mid-response. Before,
+    # these escaped as themselves, so a caller rescuing SleeperApi::Error for
+    # an outage missed the commonest one. Timeouts are handled separately.
+    CONNECTION_ERRORS = [SocketError, SystemCallError, OpenSSL::SSL::SSLError, EOFError].freeze
 
     # Not HTTParty's own. Its JSON branch passes `quirks_mode`, which json 3.0
     # removed, so without this every response raises ArgumentError the moment a
@@ -516,6 +523,11 @@ module SleeperApi
           @config.logger&.error("Request timed out for #{named} after #{retries} retries")
           raise SleeperApi::Error, "Request timed out after #{retries} retries"
         end
+      rescue *CONNECTION_ERRORS => e
+        # No retry: these fail at once, and the caller's backoff is the one
+        # that can wait long enough to matter.
+        @config.logger&.error("Could not reach #{named}: #{e.message}")
+        raise SleeperApi::Error, "Could not reach #{named}: #{e.message}"
       end
     end
   end

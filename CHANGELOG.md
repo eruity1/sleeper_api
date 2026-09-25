@@ -1,3 +1,21 @@
+## [1.5.1] - 2026-09-25
+
+### Fixed
+
+- **A connection that never got an answer now raises `SleeperApi::Error`.**
+  Before, only non-2xx responses and timeouts did: no DNS (`SocketError`), a
+  refused, reset or unreachable connection (`SystemCallError`), a failed TLS
+  handshake (`OpenSSL::SSL::SSLError`) and a socket closed mid-response
+  (`EOFError`) escaped `make_request` as themselves. A caller rescuing
+  `SleeperApi::Error` for "Sleeper is down" missed the commonest outage of all —
+  a laptop waking before its network — and one consumer recorded 196 failed
+  imports that its retry policy never saw.
+
+  The message is `"Could not reach <path>: <original message>"`, naming the host
+  for a `WEB_HOST` call. **These are not retried** whatever `retries` is set to:
+  they fail at once, and the caller's backoff is the one that can wait long
+  enough to matter. `retries` still governs timeouts only.
+
 ## [1.5.0] - 2026-09-25
 
 ### Added

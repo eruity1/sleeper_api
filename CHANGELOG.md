@@ -1,3 +1,27 @@
+## [1.5.0] - 2026-09-25
+
+### Added
+
+- **`Client#scores(season, week = nil)` — games with their kickoff times.** Each
+  game carries `start_time`, epoch milliseconds, which is **the only kickoff
+  time Sleeper publishes**: `#schedule` has a `date` and nothing finer. Measured
+  2026-09-25 against ATL @ GB, the previous night's Thursday game — its
+  `start_time` is 2026-09-25T00:15Z and agrees with `metadata.date_time` on
+  every game of the week.
+
+  ⚠️ **Also on `api.sleeper.com`**, like `#stats_with_context`, and with a
+  different shape: the season type is a **path segment**
+  (`/scores/nfl/regular/2026/3`), and the query-parameter form answers 200 with
+  nothing.
+
+  **Leave the week off for the whole season** — all 272 games of 2026 in one
+  ~610 KB call (~93 KB gzipped), against ~57 KB a week. `metadata` is the live
+  game (`quarter`, `time_remaining`, quarter scores, `is_in_progress`) plus the
+  TV channel, spread and forecast. Its `status` vocabulary (`scheduled`,
+  `closed`) differs from the top level's (`pre_game`, `complete`), and neither
+  value a live game carries has been read yet. Nothing 404s: week 19 and a
+  garbage season type answer `[]`.
+
 ## [1.4.0] - 2026-09-14
 
 ### Added

@@ -46,6 +46,11 @@ Four layers, with a deliberate split between HTTP and modeling:
   default**, because `/stats/nfl/2021/16` is a real path on both and they
   return different things; paths on `.app` quote exactly as they did before.
 
+  v1.5.0 added a second `WEB_HOST` endpoint, `#scores`, the only source of a
+  **kickoff time** — and its season type is a path segment where
+  `#stats_with_context` takes a query parameter. The host does not have one
+  convention; each path is measured on its own.
+
   **When an endpoint almost has what you need, try the other host before
   concluding the data does not exist.** Four epics of stats work in the
   consuming app never surfaced the per-week team, because the documented-looking

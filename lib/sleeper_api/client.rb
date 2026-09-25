@@ -340,6 +340,43 @@ module SleeperApi
       make_request("/stats/#{segments.join("/")}?season_type=#{query}", host: WEB_HOST)
     end
 
+    # Get games with their kickoff times — undocumented, on the web host.
+    #
+    # **The only kickoff time Sleeper publishes.** #schedule carries a `date`
+    # and nothing finer; each game here has `start_time`, epoch milliseconds —
+    # 2026's Thursday opener of week 3, ATL @ GB, is 1790295300000, which is
+    # 2026-09-25T00:15Z and agrees with `metadata.date_time` on every game.
+    # Measured 2026-09-25, the morning after that game.
+    #
+    # `metadata` is the live game: `quarter`, `time_remaining`, the score by
+    # quarter, `is_in_progress`, `is_over`, plus the TV `channel`, the spread and
+    # a forecast. Its `status` is a different vocabulary from the top level's —
+    # `scheduled`/`closed` against `pre_game`/`complete` — and neither value a
+    # live game carries has been read here yet. Match with a fallback.
+    #
+    # **Leave the week off for the whole season** — all 272 games of 2026 in one
+    # call, ~610 KB (~93 KB gzipped), against ~57 KB a week. Unlike
+    # #stats_with_context, the season form is useful.
+    #
+    # The season type is a **path segment**, not a query parameter —
+    # `/scores/nfl/2026/3?season_type=regular` answers 200 with nothing. Shares
+    # the host's traps: nothing 404s (week 19, a garbage season type all answer
+    # `200` with `[]`), and `pre`/`post` restart week numbering.
+    #
+    # @param season [Integer, String] Season year, e.g. 2026
+    # @param week [Integer, String, nil] Week number; nil for the whole season
+    # @param season_type [String] "regular" (default), "pre", or "post"
+    # @param sport [String] Sport code (default: "nfl")
+    # @return [HTTParty::Response] Array of games, each with `game_id`, `week`,
+    #   `status`, `start_time`, `date` and a nested `metadata`
+    def scores(season, week = nil, season_type: "regular", sport: "nfl")
+      segments = [sport, season_type, season, week].compact.map do |segment|
+        ERB::Util.url_encode(segment.to_s)
+      end
+
+      make_request("/scores/#{segments.join("/")}", host: WEB_HOST)
+    end
+
     # Get a season's game schedule.
     #
     # Undocumented, and served from the host root rather than /v1 — hence the

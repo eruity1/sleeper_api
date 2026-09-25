@@ -354,6 +354,75 @@ RSpec.describe SleeperApi::Client do
       end
     end
 
+    # The only source of a kickoff time. Measured 2026-09-25, the morning after
+    # ATL @ GB: #schedule carries a `date` and nothing finer.
+    describe "#scores" do
+      let(:web) { "https://api.sleeper.com" }
+      let(:games) do
+        [{ "game_id" => "202610312", "week" => 3, "status" => "complete",
+           "start_time" => 1_790_295_300_000, "date" => "2026-09-24",
+           "metadata" => { "home_team" => "GB", "away_team" => "ATL", "quarter" => "F" } }]
+      end
+
+      it "fetches a week's games from the web host" do
+        stub_request(:get, "#{web}/scores/nfl/regular/2026/3").to_return(
+          status: 200, body: JSON.generate(games),
+          headers: { "Content-Type" => "application/json" }
+        )
+
+        expect(client.scores(2026, 3).parsed_response).to eq(games)
+      end
+
+      it "never reaches the api host, which has no such path" do
+        stub_request(:get, "#{web}/scores/nfl/regular/2026/3").to_return(
+          status: 200, body: "[]", headers: { "Content-Type" => "application/json" }
+        )
+
+        client.scores(2026, 3)
+
+        expect(WebMock).not_to have_requested(:get, /api\.sleeper\.app/)
+      end
+
+      # Unlike #stats_with_context, the season form is useful: all 272 games of
+      # 2026 in one ~610 KB call, every one with a start time.
+      it "answers the whole season when no week is given" do
+        stub_request(:get, "#{web}/scores/nfl/regular/2026").to_return(
+          status: 200, body: JSON.generate(games), headers: { "Content-Type" => "application/json" }
+        )
+
+        expect(client.scores(2026).parsed_response).to eq(games)
+      end
+
+      # A path segment here, where #stats_with_context takes a query parameter —
+      # `/scores/nfl/2026/3?season_type=regular` answers 200 with nothing.
+      it "puts the season type in the path" do
+        stub_request(:get, "#{web}/scores/nfl/post/2025/1").to_return(
+          status: 200, body: "[]", headers: { "Content-Type" => "application/json" }
+        )
+
+        client.scores(2025, 1, season_type: "post")
+
+        expect(WebMock).to have_requested(:get, "#{web}/scores/nfl/post/2025/1")
+      end
+
+      it "escapes a week that would otherwise traverse out of the path" do
+        stub_request(:get, "#{web}/scores/nfl/regular/2026/..%2F..%2Fplayers")
+          .to_return(status: 200, body: "[]", headers: { "Content-Type" => "application/json" })
+
+        client.scores(2026, "../../players")
+
+        expect(WebMock).to have_requested(:get, "#{web}/scores/nfl/regular/2026/..%2F..%2Fplayers")
+      end
+
+      it "names the host in the error" do
+        stub_request(:get, "#{web}/scores/nfl/regular/2026/3").to_return(status: 503, body: "")
+
+        expect { client.scores(2026, 3) }.to raise_error(
+          SleeperApi::Error, "Failed to fetch #{web}/scores/nfl/regular/2026/3: 503"
+        )
+      end
+    end
+
     describe "#schedule" do
       let(:host_url) { "https://api.sleeper.app" }
       # All four statuses Sleeper has been observed to send, in one fixture.

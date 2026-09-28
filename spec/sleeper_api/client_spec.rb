@@ -107,6 +107,46 @@ RSpec.describe SleeperApi::Client do
       end
     end
 
+    # G.6. An unescaped segment raised URI::InvalidURIError, which is not a
+    # SleeperApi::Error, or walked out of the endpoint entirely.
+    describe "path escaping" do
+      it "escapes a username with a space or a percent sign" do
+        client.get_user("a b")
+        client.get_user("100%")
+
+        expect(WebMock).to have_requested(:get, "#{base_url}/user/a%20b")
+        expect(WebMock).to have_requested(:get, "#{base_url}/user/100%25")
+      end
+
+      it "keeps a traversal inside the endpoint it was passed to" do
+        stub_request(:get, "https://api.sleeper.app/league/123")
+
+        client.get_user("../../league/123")
+
+        expect(WebMock).to have_requested(:get, "#{base_url}/user/..%2F..%2Fleague%2F123")
+        expect(WebMock).not_to have_requested(:get, "https://api.sleeper.app/league/123")
+      end
+
+      it "escapes ids in the league, draft and user-season paths too" do
+        client.get_league_rosters("1/2")
+        client.get_draft_picks("3 4")
+        client.get_user_leagues("u/1", season: "2025/x")
+
+        expect(WebMock).to have_requested(:get, "#{base_url}/league/1%2F2/rosters")
+        expect(WebMock).to have_requested(:get, "#{base_url}/draft/3%204/picks")
+        expect(WebMock).to have_requested(:get, "#{base_url}/user/u%2F1/leagues/nfl/2025%2Fx")
+      end
+
+      it "escapes the schedule and trending segments" do
+        stub_request(:get, %r{https://api.sleeper.app/schedule/.*})
+        client.schedule("2026", season_type: "a b")
+        client.trending_players(type: "a/b")
+
+        expect(WebMock).to have_requested(:get, "https://api.sleeper.app/schedule/nfl/a%20b/2026")
+        expect(WebMock).to have_requested(:get, "#{base_url}/players/nfl/trending/a%2Fb?lookback_hours=24&limit=25")
+      end
+    end
+
     describe "#get_league" do
       it "makes request to correct endpoint" do
         client.get_league("12345")

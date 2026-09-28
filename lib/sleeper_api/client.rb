@@ -84,7 +84,7 @@ module SleeperApi
     # @raise [SleeperApi::UserNotFound] If no user has that identifier
     # @see https://docs.sleeper.com/#user
     def get_user(identifier)
-      response = make_request("/v1/user/#{identifier}")
+      response = make_request(path("v1", "user", identifier))
       raise UserNotFound, "No Sleeper user #{identifier.to_s.inspect}" if response.parsed_response.nil?
 
       response
@@ -98,7 +98,7 @@ module SleeperApi
     # @return [Array<Hash>] League data
     # @see https://docs.sleeper.com/#get-all-leagues-for-user
     def get_user_leagues(user_id, sport: "nfl", season: Time.now.year)
-      make_request("/v1/user/#{user_id}/leagues/#{sport}/#{season}")
+      make_request(path("v1", "user", user_id, "leagues", sport, season))
     end
 
     # Get drafts for a user in a specific season.
@@ -109,7 +109,7 @@ module SleeperApi
     # @return [Array<Hash>] Draft data
     # @see https://docs.sleeper.com/#get-all-drafts-for-user
     def get_user_drafts(user_id, sport: "nfl", season: Time.now.year)
-      make_request("/v1/user/#{user_id}/drafts/#{sport}/#{season}")
+      make_request(path("v1", "user", user_id, "drafts", sport, season))
     end
 
     # Fetch league details.
@@ -118,7 +118,7 @@ module SleeperApi
     # @return [Hash] League metadata
     # @see https://docs.sleeper.com/#get-a-specific-league
     def get_league(league_id)
-      make_request("/v1/league/#{league_id}")
+      make_request(path("v1", "league", league_id))
     end
 
     # Get all rosters in a league.
@@ -127,7 +127,7 @@ module SleeperApi
     # @return [Array<Hash>] Roster data
     # @see https://docs.sleeper.com/#getting-rosters-in-a-league
     def get_league_rosters(league_id)
-      make_request("/v1/league/#{league_id}/rosters")
+      make_request(path("v1", "league", league_id, "rosters"))
     end
 
     # Get all users in a league.
@@ -136,7 +136,7 @@ module SleeperApi
     # @return [Array<Hash>] User data
     # @see https://docs.sleeper.com/#getting-users-in-a-league
     def get_league_users(league_id)
-      make_request("/v1/league/#{league_id}/users")
+      make_request(path("v1", "league", league_id, "users"))
     end
 
     # Get matchups for a specific week.
@@ -146,7 +146,7 @@ module SleeperApi
     # @return [Array<Hash>] Matchup data
     # @see https://docs.sleeper.com/#getting-matchups-in-a-league
     def get_league_matchups(league_id, week)
-      make_request("/v1/league/#{league_id}/matchups/#{week}")
+      make_request(path("v1", "league", league_id, "matchups", week))
     end
 
     # Get playoff winners bracket.
@@ -155,7 +155,7 @@ module SleeperApi
     # @return [Array<Hash>] Bracket matchups
     # @see https://docs.sleeper.com/#getting-the-playoff-bracket
     def get_playoff_bracket(league_id)
-      make_request("/v1/league/#{league_id}/winners_bracket")
+      make_request(path("v1", "league", league_id, "winners_bracket"))
     end
 
     # Get toilet bowl (losers bracket).
@@ -164,7 +164,7 @@ module SleeperApi
     # @return [Array<Hash>] Bracket matchups
     # @see https://docs.sleeper.com/#getting-the-playoff-bracket
     def get_toilet_bowl(league_id)
-      make_request("/v1/league/#{league_id}/losers_bracket")
+      make_request(path("v1", "league", league_id, "losers_bracket"))
     end
 
     # Get transactions for a specific week.
@@ -174,7 +174,7 @@ module SleeperApi
     # @return [Array<Hash>] Transaction data
     # @see https://docs.sleeper.com/#get-transactions
     def get_transactions(league_id, week)
-      make_request("/v1/league/#{league_id}/transactions/#{week}")
+      make_request(path("v1", "league", league_id, "transactions", week))
     end
 
     # Get league drafts.
@@ -183,7 +183,7 @@ module SleeperApi
     # @return [Array<Hash>] Draft data
     # @see https://docs.sleeper.com/#get-all-drafts-for-a-league
     def get_league_drafts(league_id)
-      make_request("/v1/league/#{league_id}/drafts")
+      make_request(path("v1", "league", league_id, "drafts"))
     end
 
     # Get traded draft picks for a league.
@@ -192,7 +192,7 @@ module SleeperApi
     # @return [Array<Hash>] Traded picks
     # @see https://docs.sleeper.com/#get-traded-picks-in-a-draft
     def get_league_traded_picks(league_id)
-      make_request("/v1/league/#{league_id}/traded_picks")
+      make_request(path("v1", "league", league_id, "traded_picks"))
     end
 
     # Fetch draft details.
@@ -201,7 +201,7 @@ module SleeperApi
     # @return [Hash] Draft metadata
     # @see https://docs.sleeper.com/#get-a-specific-draft
     def get_draft(draft_id)
-      make_request("/v1/draft/#{draft_id}")
+      make_request(path("v1", "draft", draft_id))
     end
 
     # Get draft picks.
@@ -210,7 +210,7 @@ module SleeperApi
     # @return [Array<Hash>] Pick data
     # @see https://docs.sleeper.com/#get-all-picks-in-a-draft
     def get_draft_picks(draft_id)
-      make_request("/v1/draft/#{draft_id}/picks")
+      make_request(path("v1", "draft", draft_id, "picks"))
     end
 
     # Get traded draft picks for a draft.
@@ -219,7 +219,7 @@ module SleeperApi
     # @return [Array<Hash>] Traded picks
     # @see https://docs.sleeper.com/#get-traded-picks-in-a-draft
     def get_draft_traded_picks(draft_id)
-      make_request("/v1/draft/#{draft_id}/traded_picks")
+      make_request(path("v1", "draft", draft_id, "traded_picks"))
     end
 
     # Get NFL state (week, season status).
@@ -228,7 +228,7 @@ module SleeperApi
     # @return [Hash] State data
     # @see https://docs.sleeper.com/#get-nfl-state
     def get_nfl_state(sport = "nfl")
-      nfl_state = make_request("/v1/state/#{sport}")
+      nfl_state = make_request(path("v1", "state", sport))
       nfl_state.each_with_object({}) do |(k, v), result|
         key = k.is_a?(String) ? k.to_sym : k
         result[key] = v
@@ -431,7 +431,7 @@ module SleeperApi
     # @param sport [String] Sport code (default: "nfl")
     # @return [HTTParty::Response] Array of games
     def schedule(season, season_type: "regular", sport: "nfl")
-      make_request("/schedule/#{sport}/#{season_type}/#{season}")
+      make_request(path("schedule", sport, season_type, season))
     end
 
     # Get trending players.
@@ -443,7 +443,8 @@ module SleeperApi
     # @return [Array<Hash>] Trending players
     # @see https://docs.sleeper.com/#trending-players
     def trending_players(sport = "nfl", type: "add", lookback_hours: 24, limit: 25)
-      make_request("/v1/players/#{sport}/trending/#{type}?lookback_hours=#{lookback_hours}&limit=#{limit}")
+      query = URI.encode_www_form(lookback_hours: lookback_hours, limit: limit)
+      make_request("#{path("v1", "players", sport, "trending", type)}?#{query}")
     end
 
     # Get all player data (cached for 24 hours).
@@ -454,7 +455,7 @@ module SleeperApi
     def get_players(sport = "nfl")
       return @players_cache if @players_cache && @cache_timestamp && (Time.now - @cache_timestamp) < (3600 * 24)
 
-      response = make_request("/v1/players/#{sport}")
+      response = make_request(path("v1", "players", sport))
       @players_cache = response.parsed_response
       @cache_timestamp = Time.now
 
@@ -473,18 +474,18 @@ module SleeperApi
 
     private
 
-    # Path for #stats and #projections. Segments are escaped because they are
-    # interpolated into a URI path: an unescaped one can walk out of the
-    # endpoint entirely, which is the bug the consuming app had to work around
-    # for #get_user.
-    #
-    # A nil week drops the segment rather than defaulting, because the shorter
-    # path is season totals.
-    def weekly_path(resource, sport, season_type, season, week)
-      segments = [resource, sport, season_type, season, week].compact
-      escaped = segments.map { |segment| ERB::Util.url_encode(segment.to_s) }
+    # Every request path is built here, from escaped segments. An unescaped
+    # one raised URI::InvalidURIError, which is not a SleeperApi::Error, or
+    # walked out of the endpoint entirely: `../../league/123` as a username
+    # requested /league/123.
+    def path(*segments)
+      "/#{segments.map { |segment| ERB::Util.url_encode(segment.to_s) }.join("/")}"
+    end
 
-      "/v1/#{escaped.join("/")}"
+    # Path for #stats and #projections. A nil week drops the segment rather
+    # than defaulting, because the shorter path is season totals.
+    def weekly_path(resource, sport, season_type, season, week)
+      path("v1", *[resource, sport, season_type, season, week].compact)
     end
 
     # Make an HTTP request with retry logic and logging.

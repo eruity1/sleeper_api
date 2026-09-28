@@ -339,8 +339,8 @@ season_stats = client.stats(2025)
 real = projected.parsed_response.select { |_id, row| row.key?("pts_ppr") }
 
 # Get playoff brackets
-winners_bracket = client.get_league_playoff_bracket("league_id")
-losers_bracket = client.get_league_toilet_bowl("league_id")
+winners_bracket = client.get_playoff_bracket("league_id")
+losers_bracket = client.get_toilet_bowl("league_id")
 
 # Get league drafts
 league_drafts = client.get_league_drafts("league_id")
@@ -366,7 +366,9 @@ end
 
 ### Error Types
 
-- SleeperApi::Error - API-related errors (404, 500, timeouts, etc.)
+- SleeperApi::Error - API-related errors (404, 500, timeouts, an unreachable host)
+
+- SleeperApi::UserNotFound - a subclass of SleeperApi::Error: no Sleeper user has that identifier. Permanent, so rescue it before SleeperApi::Error if you retry the rest
 
 - ArgumentError - Invalid parameters passed to methods
 
@@ -374,11 +376,9 @@ end
 
 ### Caching
 
-- Player data is cached for 24 hours to reduce API calls
+- Player data is cached in memory for 24 hours, on the client instance — a new client downloads it again
 
 - League/User/Draft data is cached per instance
-
-- Cache files are stored in the current working directory
 
 ### Rate Limiting
 
@@ -390,7 +390,7 @@ end
 
 ### Memory Usage
 
-- Large datasets (like all players) are cached to disk
+- The all-players payload is several megabytes and held in memory; never fan it out
 
 - League rosters and matchups are fetched lazily
 

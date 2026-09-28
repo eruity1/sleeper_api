@@ -249,6 +249,28 @@ RSpec.describe SleeperApi::Draft do
       expect(first_pick[:position]).to eq("QB")
       expect(first_pick[:picked_by]).to eq("user1")
     end
+
+    context "when a pick carries no metadata" do
+      let(:picks_data) do
+        [{ "pick_no" => 1, "player_id" => "1234", "picked_by" => "user1", "round" => 1, "metadata" => nil }]
+      end
+
+      it "names nobody rather than raising" do
+        pick = draft.summary[:top_picks].first
+        expect(pick[:player_name]).to be_nil
+        expect(pick[:position]).to be_nil
+      end
+    end
+
+    context "when a pick carries only one name" do
+      let(:picks_data) do
+        [{ "pick_no" => 1, "player_id" => "DEN", "round" => 1, "metadata" => { "last_name" => "Broncos" } }]
+      end
+
+      it "does not pad the name with a space" do
+        expect(draft.summary[:top_picks].first[:player_name]).to eq("Broncos")
+      end
+    end
   end
 
   describe "#rounds" do

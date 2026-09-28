@@ -39,7 +39,7 @@ RSpec.describe SleeperApi::League do
 
       it "sets default weeks range" do
         league = described_class.new(league_id, client)
-        expect(league.weeks).to eq(1..17)
+        expect(league.weeks).to eq(1..18)
       end
 
       it "fetches league data by default" do
@@ -380,16 +380,28 @@ RSpec.describe SleeperApi::League do
       expect(client).to have_received(:get_league_matchups).once
     end
 
-    it "skips entries with no matchup_id instead of returning nil" do
+    # A roster on a bye arrives with a null matchup_id. It was dropped, which
+    # made a bye look exactly like a missing team.
+    it "returns a roster on a bye unpaired, with a nil matchup_id" do
       allow(client).to receive(:get_league_matchups).and_return(
         [{ "matchup_id" => nil, "roster_id" => 9, "points" => 0, "starters" => [], "players" => [] },
          *matchups_data]
       )
 
-      result = league.matchups_by_week(week: 3)
+      bye = league.matchups_by_week(week: 3).find { |matchup| matchup[:matchup_id].nil? }
 
-      expect(result).not_to include(nil)
-      expect(result.length).to eq(1)
+      expect(bye[:rosters].map { |roster| roster[:roster_id] }).to eq([9])
+    end
+
+    it "never pairs two rosters on a bye with each other" do
+      allow(client).to receive(:get_league_matchups).and_return(
+        [{ "matchup_id" => nil, "roster_id" => 9, "starters" => [], "players" => [] },
+         { "matchup_id" => nil, "roster_id" => 10, "starters" => [], "players" => [] }]
+      )
+
+      result = league.matchups_by_week(week: 18)
+
+      expect(result.map { |matchup| matchup[:rosters].map { |roster| roster[:roster_id] } }).to eq([[9], [10]])
     end
 
     it "tolerates a roster with no players or points" do
@@ -407,13 +419,13 @@ RSpec.describe SleeperApi::League do
       expect(league.matchups_by_week(week: 3)).to eq([])
     end
 
-    it "raises ArgumentError for a week outside 1..17" do
-      expect { league.matchups_by_week(week: 0) }.to raise_error(ArgumentError, "Week must be between 1 and 17")
-      expect { league.matchups_by_week(week: 18) }.to raise_error(ArgumentError, "Week must be between 1 and 17")
+    it "raises ArgumentError for a week outside 1..18" do
+      expect { league.matchups_by_week(week: 0) }.to raise_error(ArgumentError, "Week must be between 1 and 18")
+      expect { league.matchups_by_week(week: 19) }.to raise_error(ArgumentError, "Week must be between 1 and 18")
     end
 
     it "raises ArgumentError when no week is given" do
-      expect { league.matchups_by_week }.to raise_error(ArgumentError, "Week must be between 1 and 17")
+      expect { league.matchups_by_week }.to raise_error(ArgumentError, "Week must be between 1 and 18")
     end
   end
 
@@ -423,8 +435,8 @@ RSpec.describe SleeperApi::League do
     before { allow(client).to receive(:get_league_matchups).and_return([]) }
 
     it "fetches every week in the range" do
-      expect(league.matchups.keys).to eq((1..17).to_a)
-      expect(client).to have_received(:get_league_matchups).exactly(17).times
+      expect(league.matchups.keys).to eq((1..18).to_a)
+      expect(client).to have_received(:get_league_matchups).exactly(18).times
     end
   end
 
@@ -485,8 +497,8 @@ RSpec.describe SleeperApi::League do
       expect(client).to have_received(:get_transactions).once
     end
 
-    it "raises ArgumentError for a week outside 1..17" do
-      expect { league.transactions(week: 99) }.to raise_error(ArgumentError, "Week must be between 1 and 17")
+    it "raises ArgumentError for a week outside 1..18" do
+      expect { league.transactions(week: 99) }.to raise_error(ArgumentError, "Week must be between 1 and 18")
     end
   end
 

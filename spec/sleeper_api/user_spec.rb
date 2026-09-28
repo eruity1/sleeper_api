@@ -80,9 +80,10 @@ RSpec.describe SleeperApi::User do
       expect { described_class.new(nil, client) }.to raise_error(ArgumentError, "identifier must be a non-empty string")
     end
 
-    it "raises error when user data is invalid" do
+    it "raises UserNotFound when the user data carries no user_id" do
       allow(client).to receive(:get_user).and_return({ "invalid" => "data" })
-      expect { described_class.new(identifier, client) }.to raise_error(SleeperApi::Error, "Invalid user data: user_id not found")
+      expect { described_class.new(identifier, client) }
+        .to raise_error(SleeperApi::UserNotFound, "Invalid user data: user_id not found")
     end
   end
 
@@ -156,6 +157,27 @@ RSpec.describe SleeperApi::User do
       allow(client).to receive(:get_user_leagues).and_return(nil)
       expect(user.leagues).to eq([])
     end
+
+    context "with two seasons on one instance" do
+      before do
+        allow(client).to receive(:get_user_leagues).with("user123", season: 2025)
+          .and_return([{ "league_id" => "l2025" }])
+        allow(client).to receive(:get_user_leagues).with("user123", season: 2024)
+          .and_return([{ "league_id" => "l2024" }])
+      end
+
+      it "returns each season's own leagues, whatever was asked first" do
+        user.leagues(2025)
+        expect(user.leagues(2024).map { |league| league[:league_id] }).to eq(["l2024"])
+      end
+
+      it "still caches per season" do
+        user.leagues(2025)
+        user.leagues(2024)
+        user.leagues(2025)
+        expect(client).to have_received(:get_user_leagues).with("user123", season: 2025).once
+      end
+    end
   end
 
   describe "#rosters" do
@@ -183,6 +205,18 @@ RSpec.describe SleeperApi::User do
 
     it "raises error for invalid season" do
       expect { user.rosters("invalid") }.to raise_error(ArgumentError, "season must be a valid year")
+    end
+
+    it "reads the requested season's leagues after another season was fetched" do
+      allow(client).to receive(:get_user_leagues).with("user123", season: 2025)
+        .and_return([{ "league_id" => "l2025" }])
+      allow(client).to receive(:get_user_leagues).with("user123", season: 2024)
+        .and_return([{ "league_id" => "l2024" }])
+
+      user.leagues(2025)
+      user.rosters(2024)
+      expect(SleeperApi::League).to have_received(:new).with("l2024", client, no_data: true)
+      expect(SleeperApi::League).not_to have_received(:new).with("l2025", client, no_data: true)
     end
   end
 
@@ -220,6 +254,16 @@ RSpec.describe SleeperApi::User do
     it "handles nil drafts response" do
       allow(client).to receive(:get_user_drafts).and_return(nil)
       expect(user.drafts).to eq([])
+    end
+
+    it "returns each season's own drafts, whatever was asked first" do
+      allow(client).to receive(:get_user_drafts).with("user123", season: 2025)
+        .and_return([{ "draft_id" => "d2025" }])
+      allow(client).to receive(:get_user_drafts).with("user123", season: 2024)
+        .and_return([{ "draft_id" => "d2024" }])
+
+      user.drafts(2025)
+      expect(user.drafts(2024).map { |draft| draft[:draft_id] }).to eq(["d2024"])
     end
   end
 

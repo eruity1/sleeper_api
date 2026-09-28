@@ -1,3 +1,43 @@
+## [1.6.0] - 2026-09-28
+
+### Added
+
+- **`SleeperApi::UserNotFound`, a subclass of `SleeperApi::Error`.** Sleeper
+  answers an unknown user with `200` and a literal `null` body — checked live
+  2026-09-28 — so there was no error at all: `get_user` returned a response
+  whose `parsed_response` was nil. It now raises `UserNotFound`, and so does
+  `User.new` for a payload with no `user_id`. A caller can tell "no such user"
+  (permanent) from an outage without matching message strings; rescuing
+  `SleeperApi::Error` alone still sees both.
+
+### Changed
+
+- **`League#matchups_by_week` returns rosters on a bye** instead of dropping
+  them. Each comes back unpaired as `{ matchup_id: nil, rosters: [roster] }`,
+  never grouped with another bye. A bye used to look exactly like a missing
+  team.
+- **`get_user` raises for an unknown user** rather than returning a nil-bodied
+  response (see Added).
+
+### Fixed
+
+- **`User#leagues`, `#rosters` and `#drafts` answer for the season asked.** The
+  memo was not keyed by season, so `leagues(2025)` then `leagues(2024)` on one
+  instance returned 2025's leagues — silently wrong rows for a multi-season
+  caller.
+- **Every value interpolated into a request path is escaped.** `get_user("a b")`
+  raised `URI::InvalidURIError`, which is not a `SleeperApi::Error`, and
+  `get_user("../../league/123")` requested `/league/123`. Every `Client` path is
+  now built from escaped segments.
+- **Week 18 is reachable.** `matchups_by_week` and `transactions` accepted
+  weeks 1–17 and Sleeper's regular season runs to 18; `#matchups` now fetches
+  all eighteen.
+- **`Draft#summary` no longer raises on a pick with no metadata**, and a pick
+  with one name part is not padded with a space.
+- **The README** named `get_league_playoff_bracket` / `get_league_toilet_bowl`
+  (the methods are `get_playoff_bracket` / `get_toilet_bowl`) and described a
+  disk cache that does not exist.
+
 ## [1.5.1] - 2026-09-25
 
 ### Fixed

@@ -14,18 +14,20 @@ module SleeperApi
     # @param identifier [String, Integer] Username or user ID
     # @param client [SleeperApi::Client] HTTP client instance
     # @raise [ArgumentError] If identifier is empty
-    # @raise [SleeperApi::Error] If user data is invalid
+    # @raise [SleeperApi::UserNotFound] If no user has that identifier
     def initialize(identifier, client)
       raise ArgumentError, "identifier must be a non-empty string" if identifier.to_s.empty?
 
       @identifier = identifier
       @client = client
       @user_data = nil
-      @leagues = nil
-      @drafts = nil
+      # Keyed by season: one instance is asked about several seasons, and a
+      # single memo answered every later season with the first one's data.
+      @leagues = {}
+      @drafts = {}
 
       fetch_user_data
-      @user_id = @user_data["user_id"] || raise(SleeperApi::Error, "Invalid user data: user_id not found")
+      @user_id = @user_data["user_id"] || raise(SleeperApi::UserNotFound, "Invalid user data: user_id not found")
     end
 
     # Dynamically define attribute readers for user data.
@@ -51,7 +53,6 @@ module SleeperApi
       raise ArgumentError, "season must be a valid year" unless season.is_a?(Integer)
 
       fetch_leagues(season)
-      @leagues
     end
 
     # Get all rosters for this user across all leagues in a season.
@@ -62,8 +63,7 @@ module SleeperApi
     def rosters(season = Time.now.year)
       raise ArgumentError, "season must be a valid year" unless season.is_a?(Integer)
 
-      fetch_leagues(season) unless @leagues
-      (@leagues || []).flat_map do |league|
+      fetch_leagues(season).flat_map do |league|
         league_instance = League.new(league[:league_id], @client, no_data: true)
         league_instance.rosters(user_id: @user_id)
       end
@@ -77,8 +77,7 @@ module SleeperApi
     def drafts(season = Time.now.year)
       raise ArgumentError, "season must be a valid year" unless season.is_a?(Integer)
 
-      fetch_drafts(season) unless @drafts
-      format_drafts
+      format_drafts(fetch_drafts(season))
     end
 
     # Get a summary of user's league participation.
@@ -115,17 +114,19 @@ module SleeperApi
     end
 
     def fetch_leagues(season)
-      @leagues ||= (@client.get_user_leagues(@user_id, season: season) || []).map do |league|
+      @leagues[season] ||= (@client.get_user_leagues(@user_id, season: season) || []).map do |league|
         deep_symbolize_keys(league)
       end
     end
 
     def fetch_drafts(season)
-      @drafts ||= (@client.get_user_drafts(@user_id, season: season) || []).map { |draft| deep_symbolize_keys(draft) }
+      @drafts[season] ||= (@client.get_user_drafts(@user_id, season: season) || []).map do |draft|
+        deep_symbolize_keys(draft)
+      end
     end
 
-    def format_drafts
-      (@drafts || []).map do |draft|
+    def format_drafts(drafts)
+      drafts.map do |draft|
         draft.merge(
           league_name: draft.dig(:metadata, :name),
           scoring_type: draft.dig(:metadata, :scoring_type),

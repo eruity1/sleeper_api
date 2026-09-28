@@ -109,8 +109,8 @@ module SleeperApi
         top_picks: picks.select { |pick| pick[:round] == 1 }.map do |pick|
           {
             player_id: pick[:player_id],
-            player_name: "#{pick[:metadata][:first_name]} #{pick[:metadata][:last_name]}",
-            position: pick[:metadata][:position],
+            player_name: pick_player_name(pick),
+            position: pick[:metadata]&.dig(:position),
             picked_by: pick[:picked_by]
           }
         end
@@ -134,6 +134,13 @@ module SleeperApi
     end
 
     private
+
+    # A pick can arrive with null metadata, or a team defense with only a
+    # last name, so the name is built from whatever parts exist.
+    def pick_player_name(pick)
+      parts = [pick[:metadata]&.dig(:first_name), pick[:metadata]&.dig(:last_name)].compact
+      parts.empty? ? nil : parts.join(" ")
+    end
 
     def fetch_draft_data
       @draft_data ||= @client.get_draft(@draft_id)

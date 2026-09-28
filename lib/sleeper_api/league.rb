@@ -22,7 +22,7 @@ module SleeperApi
 
       @league_id = league_id
       @client = client
-      @weeks = 1..17
+      @weeks = 1..18
       @league_data = nil
       @league_rosters = nil
       @league_users = nil
@@ -105,7 +105,7 @@ module SleeperApi
 
     # Get formatted matchups for a specific week.
     #
-    # @param week [Integer] Week number (1-17)
+    # @param week [Integer] Week number (1-18)
     # @return [Array<Hash>] Matchup data with scoring breakdown
     # @raise [ArgumentError] If week is invalid
     #
@@ -117,7 +117,7 @@ module SleeperApi
     #     end
     #   end
     def matchups_by_week(week: nil)
-      raise ArgumentError, "Week must be between 1 and 17" unless @weeks.include?(week)
+      raise ArgumentError, "Week must be between #{@weeks.min} and #{@weeks.max}" unless @weeks.include?(week)
 
       fetch_matchups([week]) unless @matchups&.key?(week)
       format_matchups(week)
@@ -140,7 +140,7 @@ module SleeperApi
 
     # Get formatted transactions for a specific week.
     #
-    # @param week [Integer] Week number (1-17)
+    # @param week [Integer] Week number (1-18)
     # @return [Array<Hash>] Transaction data with adds/drops and draft picks
     # @raise [ArgumentError] If week is invalid
     #
@@ -150,7 +150,7 @@ module SleeperApi
     #     puts "#{tx[:type]}: #{tx[:adds]&.length || 0} adds, #{tx[:drops]&.length || 0} drops"
     #   end
     def transactions(week: nil)
-      raise ArgumentError, "Week must be between 1 and 17" unless @weeks.include?(week)
+      raise ArgumentError, "Week must be between #{@weeks.min} and #{@weeks.max}" unless @weeks.include?(week)
 
       fetch_transactions([week]) unless @transactions&.key?(week)
       format_transactions(week)
@@ -320,32 +320,32 @@ module SleeperApi
       week_matchups = @matchups[week] || []
       return [] if week_matchups.empty?
 
-      week_matchups.group_by { |match| match["matchup_id"] }.map do |matchup_id, matchup_entries|
-        next unless matchup_id
+      # A roster on a bye has a null matchup_id. Each one is its own unpaired
+      # entry: grouping the nils together would pair two teams that never met.
+      paired, byes = week_matchups.partition { |match| match["matchup_id"] }
 
-        {
-          matchup_id: matchup_id,
-          rosters: matchup_entries.map do |roster|
-            starters = roster["starters"] || []
+      paired.group_by { |match| match["matchup_id"] }.map do |matchup_id, entries|
+        { matchup_id: matchup_id, rosters: entries.map { |roster| format_matchup_roster(roster) } }
+      end + byes.map { |roster| { matchup_id: nil, rosters: [format_matchup_roster(roster)] } }
+    end
 
-            bench = (roster["players"] || []) - starters
-            {
-              roster_id: roster["roster_id"],
-              points: roster["points"],
-              custom_points: roster["custom_points"],
-              total_points: (roster["points"] || 0) + (roster["custom_points"] || 0),
-              starters: starters,
-              bench: bench,
-              starter_points: (starters || []).map do |starter_id|
-                { starter_id => roster["players_points"]&.dig(starter_id) || 0 }
-              end,
-              bench_points: bench.map do |bench_player_id|
-                { bench_player_id => roster["players_points"]&.dig(bench_player_id) || 0 }
-              end
-            }
-          end
-        }
-      end.compact
+    def format_matchup_roster(roster)
+      starters = roster["starters"] || []
+      bench = (roster["players"] || []) - starters
+      {
+        roster_id: roster["roster_id"],
+        points: roster["points"],
+        custom_points: roster["custom_points"],
+        total_points: (roster["points"] || 0) + (roster["custom_points"] || 0),
+        starters: starters,
+        bench: bench,
+        starter_points: player_points(roster, starters),
+        bench_points: player_points(roster, bench)
+      }
+    end
+
+    def player_points(roster, player_ids)
+      player_ids.map { |player_id| { player_id => roster["players_points"]&.dig(player_id) || 0 } }
     end
 
     def format_users

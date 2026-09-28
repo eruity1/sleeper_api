@@ -80,9 +80,10 @@ RSpec.describe SleeperApi::User do
       expect { described_class.new(nil, client) }.to raise_error(ArgumentError, "identifier must be a non-empty string")
     end
 
-    it "raises error when user data is invalid" do
+    it "raises UserNotFound when the user data carries no user_id" do
       allow(client).to receive(:get_user).and_return({ "invalid" => "data" })
-      expect { described_class.new(identifier, client) }.to raise_error(SleeperApi::Error, "Invalid user data: user_id not found")
+      expect { described_class.new(identifier, client) }
+        .to raise_error(SleeperApi::UserNotFound, "Invalid user data: user_id not found")
     end
   end
 

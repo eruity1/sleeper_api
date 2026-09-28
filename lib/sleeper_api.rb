@@ -9,6 +9,10 @@ require_relative "sleeper_api/draft"
 module SleeperApi
   class Error < StandardError; end
 
+  # The identifier names no Sleeper user. Permanent, unlike the rest of
+  # Error — retrying will not help — so a caller can rescue it on its own.
+  class UserNotFound < Error; end
+
   class << self
     attr_writer :configuration
   end

@@ -90,6 +90,21 @@ RSpec.describe SleeperApi::Client do
         response = client.get_user("testuser")
         expect(response.parsed_response).to eq(mock_response)
       end
+
+      # Sleeper answers an unknown user with 200 and a literal `null` body,
+      # checked live 2026-09-28 — there is no 404 to turn into an error.
+      it "raises UserNotFound when Sleeper answers null" do
+        stub_request(:get, "#{base_url}/user/nobody").to_return(
+          status: 200, body: "null", headers: { "Content-Type" => "application/json" }
+        )
+
+        expect { client.get_user("nobody") }
+          .to raise_error(SleeperApi::UserNotFound, "No Sleeper user \"nobody\"")
+      end
+
+      it "makes UserNotFound a SleeperApi::Error, so one rescue still sees every failure" do
+        expect(SleeperApi::UserNotFound.ancestors).to include(SleeperApi::Error)
+      end
     end
 
     describe "#get_league" do

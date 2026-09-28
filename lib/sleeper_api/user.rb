@@ -14,7 +14,7 @@ module SleeperApi
     # @param identifier [String, Integer] Username or user ID
     # @param client [SleeperApi::Client] HTTP client instance
     # @raise [ArgumentError] If identifier is empty
-    # @raise [SleeperApi::Error] If user data is invalid
+    # @raise [SleeperApi::UserNotFound] If no user has that identifier
     def initialize(identifier, client)
       raise ArgumentError, "identifier must be a non-empty string" if identifier.to_s.empty?
 
@@ -27,7 +27,7 @@ module SleeperApi
       @drafts = {}
 
       fetch_user_data
-      @user_id = @user_data["user_id"] || raise(SleeperApi::Error, "Invalid user data: user_id not found")
+      @user_id = @user_data["user_id"] || raise(SleeperApi::UserNotFound, "Invalid user data: user_id not found")
     end
 
     # Dynamically define attribute readers for user data.

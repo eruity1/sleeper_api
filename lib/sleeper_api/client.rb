@@ -76,11 +76,18 @@ module SleeperApi
 
     # Fetch user data by identifier.
     #
+    # Sleeper answers an unknown user with 200 and a literal `null` body, not
+    # a 404, so that is turned into {SleeperApi::UserNotFound} here.
+    #
     # @param identifier [String] Username or user ID
     # @return [Hash] Raw user data
+    # @raise [SleeperApi::UserNotFound] If no user has that identifier
     # @see https://docs.sleeper.com/#user
     def get_user(identifier)
-      make_request("/v1/user/#{identifier}")
+      response = make_request("/v1/user/#{identifier}")
+      raise UserNotFound, "No Sleeper user #{identifier.to_s.inspect}" if response.parsed_response.nil?
+
+      response
     end
 
     # Get leagues for a user in a specific season.

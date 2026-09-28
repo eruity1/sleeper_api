@@ -30,6 +30,8 @@ Four layers, with a deliberate split between HTTP and modeling:
 
   Every call funnels through the private `make_request`, which handles retry-on-timeout, logging, and converts non-2xx into `SleeperApi::Error` — and, since 1.5.1, **every connection failure too** (`CONNECTION_ERRORS`: `SocketError`, `SystemCallError`, `OpenSSL::SSL::SSLError`, `EOFError`), unretried, as `"Could not reach <path>: …"`. A consumer can rescue `SleeperApi::Error` alone and see every way a call fails. **That error quotes the path**, so the path prefix is part of a public string — v1.2.0 changed it from `"Failed to fetch /user/x: 404"` to `"Failed to fetch /v1/user/x: 404"`. `Client` also owns the 24-hour in-memory player cache.
 
+  ⚠️ **Never interpolate a value into a request path; build it with the private `path(*segments)`**, which escapes each segment. An unescaped one raised `URI::InvalidURIError` — not a `SleeperApi::Error`, so it escaped every rescue — or walked out of the endpoint: `../../league/123` as a username requested `/league/123` (G.6, v1.6.0). An unknown user is `200` with a `null` body, which `get_user` turns into `SleeperApi::UserNotFound`.
+
   ⚠️ **There are two Sleeper hosts and v1.4.0 added the second.** `WEB_HOST`
   (`https://api.sleeper.com`) is the one the web app uses, and it serves
   **richer rows from same-looking paths**: `#stats_with_context` returns the

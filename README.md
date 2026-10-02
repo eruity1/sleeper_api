@@ -252,6 +252,11 @@ puts "#{player['first_name']} #{player['last_name']} - #{player['position']}"
 fresh = client.player("1234")
 puts "#{fresh['injury_status']} (#{fresh['injury_body_part']})"
 
+# One player's recent news, newest first (at most 10, from api.sleeper.com)
+client.player_news("1234").each do |item|
+  puts "#{item['source']}: #{item.dig('metadata', 'title')}"
+end
+
 # Get trending players
 trending_adds = client.trending_players(type: "add", limit: 10)
 trending_drops = client.trending_players(type: "drop", limit: 10)

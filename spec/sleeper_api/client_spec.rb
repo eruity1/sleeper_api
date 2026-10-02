@@ -196,6 +196,49 @@ RSpec.describe SleeperApi::Client do
       end
     end
 
+    # One player's news, newest first. Undocumented, web host only; probed
+    # 2026-10-02. At most 10 items whatever the limit; an unknown id is 200 [].
+    describe "#player_news" do
+      let(:web) { "https://api.sleeper.com" }
+      let(:items) do
+        [{ "player_id" => "4046", "source" => "rotowire", "source_key" => "639486",
+           "published" => 1_790_542_457_000,
+           "metadata" => { "title" => "Tosses two TDs", "description" => "20 of 24." } }]
+      end
+
+      it "fetches a player's news from the web host, ten at a time" do
+        stub_request(:get, "#{web}/players/nfl/4046/news?limit=10").to_return(
+          status: 200, body: JSON.generate(items), headers: { "Content-Type" => "application/json" }
+        )
+
+        expect(client.player_news("4046").parsed_response).to eq(items)
+      end
+
+      it "never reaches the api host, where the path 404s" do
+        stub_request(:get, %r{#{web}/players/})
+
+        client.player_news("4046")
+
+        expect(WebMock).not_to have_requested(:get, /api\.sleeper\.app/)
+      end
+
+      it "takes the sport and the limit" do
+        stub_request(:get, %r{#{web}/players/})
+
+        client.player_news("1", sport: "nba", limit: 3)
+
+        expect(WebMock).to have_requested(:get, "#{web}/players/nba/1/news?limit=3")
+      end
+
+      it "escapes the id" do
+        stub_request(:get, %r{#{web}/players/})
+
+        client.player_news("a/b")
+
+        expect(WebMock).to have_requested(:get, "#{web}/players/nfl/a%2Fb/news?limit=10")
+      end
+    end
+
     describe "#get_league" do
       it "makes request to correct endpoint" do
         client.get_league("12345")

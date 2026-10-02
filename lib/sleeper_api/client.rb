@@ -487,6 +487,20 @@ module SleeperApi
                    not_found: -> { PlayerNotFound.new("No Sleeper player #{player_id.to_s.inspect}") })
     end
 
+    # One player's recent news, newest first: RotoWire, FantasyPros and
+    # RotoBaller items, each with a `metadata` title, description and usually
+    # an analysis. Undocumented and on WEB_HOST only; Sleeper returns at most
+    # 10 whatever the limit, and an unknown id answers 200 with [].
+    #
+    # @param player_id [String] Player ID
+    # @param sport [String] Sport code (default: "nfl")
+    # @param limit [Integer] How many items, up to 10
+    # @return [HTTParty::Response] The items, newest first
+    def player_news(player_id, sport: "nfl", limit: 10)
+      query = URI.encode_www_form(limit: limit)
+      make_request("#{path("players", sport, player_id, "news")}?#{query}", host: WEB_HOST)
+    end
+
     private
 
     # Every request path is built here, from escaped segments. An unescaped

@@ -1,3 +1,17 @@
+## [1.7.0] - 2026-10-02
+
+### Added
+
+- **`Client#player(player_id, sport: "nfl")`** fetches one player from the
+  undocumented `/v1/players/{sport}/{id}`: the same fields as a catalog row, in
+  about 1.2 KB rather than the 14.6 MB `#get_players` downloads. It is live and
+  uncached, so it is the way to read an `injury_status` or `depth_chart_order`
+  fresher than a nightly catalog.
+- **`SleeperApi::PlayerNotFound`, a subclass of `SleeperApi::Error`.** An
+  unknown player id is a `404`, checked live 2026-10-02, unlike an unknown
+  user's `200` and `null`. Any other failure is still a plain
+  `SleeperApi::Error`.
+
 ## [1.6.0] - 2026-09-28
 
 ### Added

@@ -70,7 +70,7 @@ Four layers, with a deliberate split between HTTP and modeling:
 
 **Guard nil defensively.** Sleeper omits fields freely — users without `metadata`, rosters without `players`, matchups without `points`. Real leagues hit these; the spec fixtures often don't. Use `&.dig` rather than `[]` on anything nested off an API response.
 
-**Never fan out `get_players`.** It's a multi-megabyte payload of every NFL player. It's cached for 24h in an ivar on the client instance — which means the cache dies with the client. Consumers holding a short-lived client re-download it every time.
+**Never fan out `get_players`.** It's a multi-megabyte payload of every NFL player. It's cached for 24h in an ivar on the client instance — which means the cache dies with the client. Consumers holding a short-lived client re-download it every time. For one player, `#player(id)` fetches `/v1/players/nfl/{id}` live (~1.2 KB, undocumented, uncached); an unknown id is a **404** there, not the `200`/`null` an unknown user gets, and becomes `PlayerNotFound`.
 
 ### Undocumented endpoints carry undocumented vocabularies
 

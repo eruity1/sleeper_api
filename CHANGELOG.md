@@ -1,3 +1,15 @@
+## [1.8.0] - 2026-10-02
+
+### Added
+
+- **`Client#player_news(player_id, sport: "nfl", limit: 10)`** fetches one
+  player's recent news from the undocumented
+  `api.sleeper.com/players/{sport}/{id}/news`, newest first: RotoWire,
+  FantasyPros and RotoBaller items with a `metadata` title, description and
+  usually an analysis. Measured 2026-10-02: Sleeper returns at most 10 whatever
+  the limit, there is no paging, and an unknown id answers `200` with `[]`. The
+  path exists on the web host only.
+
 ## [1.7.0] - 2026-10-02
 
 ### Added

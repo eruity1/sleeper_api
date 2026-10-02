@@ -13,6 +13,9 @@ module SleeperApi
   # Error — retrying will not help — so a caller can rescue it on its own.
   class UserNotFound < Error; end
 
+  # The id names no Sleeper player. Permanent, like UserNotFound.
+  class PlayerNotFound < Error; end
+
   class << self
     attr_writer :configuration
   end

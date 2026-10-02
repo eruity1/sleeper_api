@@ -147,6 +147,55 @@ RSpec.describe SleeperApi::Client do
       end
     end
 
+    # X.6 in the consuming app: one player, about 1.2 KB, where the catalog is
+    # 14.6 MB. Undocumented; found by probing on 2026-09-14.
+    describe "#player" do
+      let(:body) { { "player_id" => "11584", "injury_status" => "Questionable", "depth_chart_order" => 1 } }
+
+      it "fetches one player from /v1/players/{sport}/{id}" do
+        stub_request(:get, "#{base_url}/players/nfl/11584").to_return(
+          status: 200, body: JSON.generate(body), headers: { "Content-Type" => "application/json" }
+        )
+
+        expect(client.player("11584").parsed_response).to eq(body)
+      end
+
+      it "takes the sport" do
+        client.player("1", sport: "nba")
+
+        expect(WebMock).to have_requested(:get, "#{base_url}/players/nba/1")
+      end
+
+      it "escapes the id" do
+        client.player("a/b")
+
+        expect(WebMock).to have_requested(:get, "#{base_url}/players/nfl/a%2Fb")
+      end
+
+      # Unlike an unknown user (200, null), an unknown player is a 404, checked
+      # live 2026-10-02. It is permanent, so it gets its own class.
+      it "raises PlayerNotFound for a 404" do
+        stub_request(:get, "#{base_url}/players/nfl/99999999").to_return(
+          status: 404, body: "null", headers: { "Content-Type" => "application/json" }
+        )
+
+        expect { client.player("99999999") }
+          .to raise_error(SleeperApi::PlayerNotFound, "No Sleeper player \"99999999\"")
+      end
+
+      it "keeps any other failure a plain SleeperApi::Error" do
+        stub_request(:get, "#{base_url}/players/nfl/11584").to_return(status: 503)
+
+        expect { client.player("11584") }.to raise_error(SleeperApi::Error, "Failed to fetch /v1/players/nfl/11584: 503") do |error|
+          expect(error).not_to be_a(SleeperApi::PlayerNotFound)
+        end
+      end
+
+      it "makes PlayerNotFound a SleeperApi::Error, so one rescue still sees every failure" do
+        expect(SleeperApi::PlayerNotFound.ancestors).to include(SleeperApi::Error)
+      end
+    end
+
     describe "#get_league" do
       it "makes request to correct endpoint" do
         client.get_league("12345")

@@ -472,6 +472,21 @@ module SleeperApi
       get_players(sport)[player_id]
     end
 
+    # Fetch one player, live: about 1.2 KB where #get_players is 14.6 MB, and
+    # not cached. Undocumented; same fields as a catalog row.
+    #
+    # Sleeper answers an unknown id with 404, unlike an unknown user's 200 and
+    # null, and that 404 becomes {SleeperApi::PlayerNotFound}.
+    #
+    # @param player_id [String] Player ID
+    # @param sport [String] Sport code (default: "nfl")
+    # @return [HTTParty::Response] The player's raw data
+    # @raise [SleeperApi::PlayerNotFound] If no player has that ID
+    def player(player_id, sport: "nfl")
+      make_request(path("v1", "players", sport, player_id),
+                   not_found: -> { PlayerNotFound.new("No Sleeper player #{player_id.to_s.inspect}") })
+    end
+
     private
 
     # Every request path is built here, from escaped segments. An unescaped
@@ -503,9 +518,11 @@ module SleeperApi
     #
     # @param path [String] API endpoint path
     # @param host [String, nil] a different host, e.g. WEB_HOST
+    # @param not_found [Proc, nil] builds the error a 404 raises, for an
+    #   endpoint where 404 means "no such thing" rather than a failure
     # @return [HTTParty::Response]
     # @raise [SleeperApi::Error] On HTTP errors or timeouts
-    def make_request(path, host: nil)
+    def make_request(path, host: nil, not_found: nil)
       named = host ? "#{host}#{path}" : path
       options = { timeout: @config.timeout }
       options[:base_uri] = host if host
@@ -519,6 +536,8 @@ module SleeperApi
           response
         else
           @config.logger&.error("Failed to fetch #{named}: #{response.code}")
+          raise not_found.call if not_found && response.code == 404
+
           raise SleeperApi::Error, "Failed to fetch #{named}: #{response.code}"
         end
       rescue Net::OpenTimeout, Net::ReadTimeout => e

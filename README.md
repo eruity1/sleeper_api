@@ -243,9 +243,14 @@ Access player data with automatic caching:
 # Get all players (cached for 24 hours)
 players = client.get_players
 
-# Find specific player
+# Find specific player (reads the cached catalog above)
 player = client.get_player_by_id("1234")
 puts "#{player['first_name']} #{player['last_name']} - #{player['position']}"
+
+# One player, live and uncached: ~1.2 KB instead of the whole catalog.
+# Use it for a fresher injury_status or depth_chart_order than the catalog has.
+fresh = client.player("1234")
+puts "#{fresh['injury_status']} (#{fresh['injury_body_part']})"
 
 # Get trending players
 trending_adds = client.trending_players(type: "add", limit: 10)
@@ -369,6 +374,8 @@ end
 - SleeperApi::Error - API-related errors (404, 500, timeouts, an unreachable host)
 
 - SleeperApi::UserNotFound - a subclass of SleeperApi::Error: no Sleeper user has that identifier. Permanent, so rescue it before SleeperApi::Error if you retry the rest
+
+- SleeperApi::PlayerNotFound - a subclass of SleeperApi::Error: `client.player` was given an id Sleeper does not have. Permanent, like UserNotFound
 
 - ArgumentError - Invalid parameters passed to methods
 

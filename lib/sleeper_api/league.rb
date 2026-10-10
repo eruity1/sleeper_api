@@ -30,6 +30,8 @@ module SleeperApi
       @transactions = nil
       @playoff_bracket = nil
       @toilet_bowl = nil
+      @traded_picks = nil
+      @drafts = nil
 
       fetch_league_data unless no_data
     end
@@ -43,9 +45,15 @@ module SleeperApi
 
     # Generate avatar URL from ID.
     #
-    # @return [String, nil] Full avatar URL or nil if no avatar
-    def avatar_url
-      avatar ? "https://sleepercdn.com/avatars/#{avatar}" : nil
+    # The full size was 2.2 MB of `application/octet-stream` and the thumbnail
+    # 19 KB of PNG, measured 2026-10-09; a list of avatars wants the thumbnail.
+    #
+    # @param thumb [Boolean] The thumbnail instead of the full-size image
+    # @return [String, nil] Avatar URL or nil if no avatar
+    def avatar_url(thumb: false)
+      return nil unless avatar
+
+      thumb ? "https://sleepercdn.com/avatars/thumbs/#{avatar}" : "https://sleepercdn.com/avatars/#{avatar}"
     end
 
     # Get the reigning champion's roster.
@@ -172,7 +180,37 @@ module SleeperApi
       @toilet_bowl
     end
 
+    # Get the league's traded draft picks, as Sleeper sends them.
+    #
+    # `season` is a string ("2027"); every owner is a roster id. A pick that
+    # never moved is not listed.
+    #
+    # @param original_owner_id [Integer, nil] Filter by the roster the pick began with
+    # @param previous_owner_id [Integer, nil] Filter by previous owner
+    # @param current_owner_id [Integer, nil] Filter by current owner
+    # @return [Array<Hash>] Traded picks, symbol-keyed
+    def traded_picks(original_owner_id: nil, previous_owner_id: nil, current_owner_id: nil)
+      fetch_traded_picks unless @traded_picks
+      picks = @traded_picks
+      picks = picks.select { |pick| pick[:roster_id] == original_owner_id } if original_owner_id
+      picks = picks.select { |pick| pick[:previous_owner_id] == previous_owner_id } if previous_owner_id
+      picks = picks.select { |pick| pick[:owner_id] == current_owner_id } if current_owner_id
+      picks
+    end
+
+    # Get the league's drafts. Hashes rather than `Draft` objects, because a
+    # `Draft` fetches on construction: `client.draft(id)` opens one.
+    #
+    # @return [Array<Hash>] Drafts, symbol-keyed
+    def drafts
+      @drafts ||= (@client.get_league_drafts(@league_id) || []).map { |draft| deep_symbolize_keys(draft) }
+    end
+
     private
+
+    def fetch_traded_picks
+      @traded_picks ||= (@client.get_league_traded_picks(@league_id) || []).map { |pick| deep_symbolize_keys(pick) }
+    end
 
     def fetch_league_data
       @league_data ||= @client.get_league(@league_id)

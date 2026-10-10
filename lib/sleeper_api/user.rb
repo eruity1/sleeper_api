@@ -39,31 +39,40 @@ module SleeperApi
 
     # Generate avatar URL from ID.
     #
-    # @return [String, nil] Full avatar URL or nil if no avatar
-    def avatar_url
-      avatar ? "https://sleepercdn.com/avatars/#{avatar}" : nil
+    # The full size was 2.2 MB of `application/octet-stream` and the thumbnail
+    # 19 KB of PNG, measured 2026-10-09; a list of avatars wants the thumbnail.
+    #
+    # @param thumb [Boolean] The thumbnail instead of the full-size image
+    # @return [String, nil] Avatar URL or nil if no avatar
+    def avatar_url(thumb: false)
+      return nil unless avatar
+
+      thumb ? "https://sleepercdn.com/avatars/thumbs/#{avatar}" : "https://sleepercdn.com/avatars/#{avatar}"
     end
 
     # Get all leagues for a specific season.
     #
     # @param season [Integer] Season year (default: current year)
+    # @param sport [String] Sport code (default: "nfl"). An unknown one answers
+    #   200 with [] (measured 2026-10-09), so a typo reads as "no leagues".
     # @return [Array<Hash>] Formatted league objects
     # @raise [ArgumentError] If season is not an integer
-    def leagues(season = Time.now.year)
+    def leagues(season = Time.now.year, sport: "nfl")
       raise ArgumentError, "season must be a valid year" unless season.is_a?(Integer)
 
-      fetch_leagues(season)
+      fetch_leagues(season, sport)
     end
 
     # Get all rosters for this user across all leagues in a season.
     #
     # @param season [Integer] Season year (default: current year)
+    # @param sport [String] Sport code (default: "nfl")
     # @return [Array<Hash>] Formatted roster objects from all leagues
     # @raise [ArgumentError] If season is not an integer
-    def rosters(season = Time.now.year)
+    def rosters(season = Time.now.year, sport: "nfl")
       raise ArgumentError, "season must be a valid year" unless season.is_a?(Integer)
 
-      fetch_leagues(season).flat_map do |league|
+      fetch_leagues(season, sport).flat_map do |league|
         league_instance = League.new(league[:league_id], @client, no_data: true)
         league_instance.rosters(user_id: @user_id)
       end
@@ -72,21 +81,23 @@ module SleeperApi
     # Get all drafts for a specific season with enhanced metadata.
     #
     # @param season [Integer] Season year (default: current year)
+    # @param sport [String] Sport code (default: "nfl")
     # @return [Array<Hash>] Formatted draft objects with league info
     # @raise [ArgumentError] If season is not an integer
-    def drafts(season = Time.now.year)
+    def drafts(season = Time.now.year, sport: "nfl")
       raise ArgumentError, "season must be a valid year" unless season.is_a?(Integer)
 
-      format_drafts(fetch_drafts(season))
+      format_drafts(fetch_drafts(season, sport))
     end
 
     # Get a summary of user's league participation.
     #
     # @param season [Integer] Season year (default: current year)
+    # @param sport [String] Sport code (default: "nfl")
     # @return [Hash] Summary statistics
-    def summary(season = Time.now.year)
-      leagues_data = leagues(season)
-      rosters_data = rosters(season)
+    def summary(season = Time.now.year, sport: "nfl")
+      leagues_data = leagues(season, sport: sport)
+      rosters_data = rosters(season, sport: sport)
 
       {
         season: season,
@@ -113,14 +124,15 @@ module SleeperApi
       @user_data ||= @client.get_user(@identifier)
     end
 
-    def fetch_leagues(season)
-      @leagues[season] ||= (@client.get_user_leagues(@user_id, season: season) || []).map do |league|
+    # Keyed on the sport too, or one sport's answer would serve the other's.
+    def fetch_leagues(season, sport)
+      @leagues[[sport, season]] ||= (@client.get_user_leagues(@user_id, sport: sport, season: season) || []).map do |league|
         deep_symbolize_keys(league)
       end
     end
 
-    def fetch_drafts(season)
-      @drafts[season] ||= (@client.get_user_drafts(@user_id, season: season) || []).map do |draft|
+    def fetch_drafts(season, sport)
+      @drafts[[sport, season]] ||= (@client.get_user_drafts(@user_id, sport: sport, season: season) || []).map do |draft|
         deep_symbolize_keys(draft)
       end
     end

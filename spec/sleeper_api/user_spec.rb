@@ -111,6 +111,10 @@ RSpec.describe SleeperApi::User do
       it "returns the full avatar URL" do
         expect(user.avatar_url).to eq("https://sleepercdn.com/avatars/avatar123")
       end
+
+      it "returns the thumbnail URL when asked" do
+        expect(user.avatar_url(thumb: true)).to eq("https://sleepercdn.com/avatars/thumbs/avatar123")
+      end
     end
 
     context "when avatar is nil" do
@@ -130,7 +134,7 @@ RSpec.describe SleeperApi::User do
       result = user.leagues
       expect(result.length).to eq(2)
       expect(result.first[:league_id]).to eq("league1")
-      expect(client).to have_received(:get_user_leagues).with("user123", season: Time.now.year)
+      expect(client).to have_received(:get_user_leagues).with("user123", sport: "nfl", season: Time.now.year)
     end
 
     it "caches leagues for subsequent calls" do
@@ -146,7 +150,7 @@ RSpec.describe SleeperApi::User do
 
     it "accepts custom season parameter" do
       user.leagues(2023)
-      expect(client).to have_received(:get_user_leagues).with("user123", season: 2023)
+      expect(client).to have_received(:get_user_leagues).with("user123", sport: "nfl", season: 2023)
     end
 
     it "raises error for invalid season" do
@@ -158,11 +162,28 @@ RSpec.describe SleeperApi::User do
       expect(user.leagues).to eq([])
     end
 
+    # Sleeper answers an unknown sport with 200 and [] (measured 2026-10-09),
+    # so it is passed through, never checked against a list.
+    it "asks for another sport's leagues" do
+      user.leagues(2026, sport: "nba")
+      expect(client).to have_received(:get_user_leagues).with("user123", sport: "nba", season: 2026)
+    end
+
+    it "caches each sport apart" do
+      allow(client).to receive(:get_user_leagues).with("user123", sport: "nfl", season: 2026)
+        .and_return([{ "league_id" => "football" }])
+      allow(client).to receive(:get_user_leagues).with("user123", sport: "nba", season: 2026)
+        .and_return([{ "league_id" => "basketball" }])
+
+      user.leagues(2026)
+      expect(user.leagues(2026, sport: "nba").map { |league| league[:league_id] }).to eq(["basketball"])
+    end
+
     context "with two seasons on one instance" do
       before do
-        allow(client).to receive(:get_user_leagues).with("user123", season: 2025)
+        allow(client).to receive(:get_user_leagues).with("user123", sport: "nfl", season: 2025)
           .and_return([{ "league_id" => "l2025" }])
-        allow(client).to receive(:get_user_leagues).with("user123", season: 2024)
+        allow(client).to receive(:get_user_leagues).with("user123", sport: "nfl", season: 2024)
           .and_return([{ "league_id" => "l2024" }])
       end
 
@@ -175,7 +196,7 @@ RSpec.describe SleeperApi::User do
         user.leagues(2025)
         user.leagues(2024)
         user.leagues(2025)
-        expect(client).to have_received(:get_user_leagues).with("user123", season: 2025).once
+        expect(client).to have_received(:get_user_leagues).with("user123", sport: "nfl", season: 2025).once
       end
     end
   end
@@ -200,17 +221,22 @@ RSpec.describe SleeperApi::User do
 
     it "accepts custom season parameter" do
       user.rosters(2023)
-      expect(client).to have_received(:get_user_leagues).with("user123", season: 2023)
+      expect(client).to have_received(:get_user_leagues).with("user123", sport: "nfl", season: 2023)
     end
 
     it "raises error for invalid season" do
       expect { user.rosters("invalid") }.to raise_error(ArgumentError, "season must be a valid year")
     end
 
+    it "reads the requested sport's leagues" do
+      user.rosters(2026, sport: "nba")
+      expect(client).to have_received(:get_user_leagues).with("user123", sport: "nba", season: 2026)
+    end
+
     it "reads the requested season's leagues after another season was fetched" do
-      allow(client).to receive(:get_user_leagues).with("user123", season: 2025)
+      allow(client).to receive(:get_user_leagues).with("user123", sport: "nfl", season: 2025)
         .and_return([{ "league_id" => "l2025" }])
-      allow(client).to receive(:get_user_leagues).with("user123", season: 2024)
+      allow(client).to receive(:get_user_leagues).with("user123", sport: "nfl", season: 2024)
         .and_return([{ "league_id" => "l2024" }])
 
       user.leagues(2025)
@@ -225,7 +251,7 @@ RSpec.describe SleeperApi::User do
 
     it "fetches drafts on first call" do
       expect(user.drafts.length).to eq(1)
-      expect(client).to have_received(:get_user_drafts).with("user123", season: Time.now.year)
+      expect(client).to have_received(:get_user_drafts).with("user123", sport: "nfl", season: Time.now.year)
     end
 
     it "caches drafts for subsequent calls" do
@@ -244,7 +270,7 @@ RSpec.describe SleeperApi::User do
 
     it "accepts custom season parameter" do
       user.drafts(2023)
-      expect(client).to have_received(:get_user_drafts).with("user123", season: 2023)
+      expect(client).to have_received(:get_user_drafts).with("user123", sport: "nfl", season: 2023)
     end
 
     it "raises error for invalid season" do
@@ -256,10 +282,20 @@ RSpec.describe SleeperApi::User do
       expect(user.drafts).to eq([])
     end
 
+    it "asks for another sport's drafts, and caches each sport apart" do
+      allow(client).to receive(:get_user_drafts).with("user123", sport: "nfl", season: 2026)
+        .and_return([{ "draft_id" => "football" }])
+      allow(client).to receive(:get_user_drafts).with("user123", sport: "nba", season: 2026)
+        .and_return([{ "draft_id" => "basketball" }])
+
+      user.drafts(2026)
+      expect(user.drafts(2026, sport: "nba").map { |draft| draft[:draft_id] }).to eq(["basketball"])
+    end
+
     it "returns each season's own drafts, whatever was asked first" do
-      allow(client).to receive(:get_user_drafts).with("user123", season: 2025)
+      allow(client).to receive(:get_user_drafts).with("user123", sport: "nfl", season: 2025)
         .and_return([{ "draft_id" => "d2025" }])
-      allow(client).to receive(:get_user_drafts).with("user123", season: 2024)
+      allow(client).to receive(:get_user_drafts).with("user123", sport: "nfl", season: 2024)
         .and_return([{ "draft_id" => "d2024" }])
 
       user.drafts(2025)
@@ -316,8 +352,15 @@ RSpec.describe SleeperApi::User do
     it "accepts custom season parameter" do
       user.summary(2023)
 
-      expect(user).to have_received(:leagues).with(2023)
-      expect(user).to have_received(:rosters).with(2023)
+      expect(user).to have_received(:leagues).with(2023, sport: "nfl")
+      expect(user).to have_received(:rosters).with(2023, sport: "nfl")
+    end
+
+    it "passes the sport through" do
+      user.summary(2023, sport: "nba")
+
+      expect(user).to have_received(:leagues).with(2023, sport: "nba")
+      expect(user).to have_received(:rosters).with(2023, sport: "nba")
     end
   end
 end

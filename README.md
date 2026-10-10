@@ -76,6 +76,7 @@ user = SleeperApi.client.user('johndoe')
 user.username                  # => "johndoe"
 user.display_name              # => "John Doe"
 user.avatar_url                # => "https://sleepercdn.com/avatars/abc123"
+user.avatar_url(thumb: true)   # => "https://sleepercdn.com/avatars/thumbs/abc123"
 user.is_bot                    # => false
 
 # All leagues for current season
@@ -88,6 +89,9 @@ end
 # Specific season
 old_leagues = user.leagues(2023)
 championships = old_leagues.select { |l| l[:status] == "finished" }
+
+# Another sport (default "nfl"). An unknown sport answers [] rather than an error.
+basketball = user.leagues(2026, sport: "nba")
 
 # Get all my rosters across all leagues
 rosters = user.rosters
@@ -129,6 +133,7 @@ league.season                  # => "2024"
 league.total_rosters           # => 12
 league.status                  # => "regular"
 league.avatar_url              # => "https://sleepercdn.com/avatars/abc123"
+league.avatar_url(thumb: true) # => "https://sleepercdn.com/avatars/thumbs/abc123"
 
 # Formatted rosters (with team names and records)
 rosters = league.rosters
@@ -176,6 +181,13 @@ toilet_bowl_matchups = league.toilet_bowl
 matchup = toilet_bowl_matchups.first
 matchup[:team1_owner]          # => "Team Beta"
 matchup[:winner_owner]         # => "Team Beta"
+
+# Traded picks (only picks that moved), with the same filters as Draft#traded_picks
+picks = league.traded_picks(current_owner_id: 8)
+picks.first                    # => { season: "2027", round: 1, roster_id: 1, previous_owner_id: 1, owner_id: 8 }
+
+# Drafts, as hashes; open one with SleeperApi.client.draft(id)
+league.drafts.map { |d| d[:status] } # => ["complete"]
 ```
 
 ### Drafts

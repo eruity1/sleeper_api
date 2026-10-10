@@ -95,6 +95,11 @@ RSpec.describe SleeperApi::League do
       it "returns the full avatar URL" do
         expect(league.avatar_url).to eq("https://sleepercdn.com/avatars/test-avatar-id")
       end
+
+      # Measured 2026-10-09: 19 KB of PNG, against 2.2 MB full size.
+      it "returns the thumbnail URL when asked" do
+        expect(league.avatar_url(thumb: true)).to eq("https://sleepercdn.com/avatars/thumbs/test-avatar-id")
+      end
     end
 
     context "when avatar is nil" do
@@ -102,6 +107,7 @@ RSpec.describe SleeperApi::League do
 
       it "returns nil" do
         expect(league.avatar_url).to be_nil
+        expect(league.avatar_url(thumb: true)).to be_nil
       end
     end
   end
@@ -560,6 +566,68 @@ RSpec.describe SleeperApi::League do
         league.toilet_bowl
         expect(client).to have_received(:get_toilet_bowl).once
       end
+    end
+  end
+
+  describe "#traded_picks" do
+    let(:league) { described_class.new(league_id, client) }
+    # Live shape, 2026-10-09: `season` is a string, owners are roster ids.
+    let(:traded_picks_data) do
+      [
+        { "season" => "2027", "round" => 1, "roster_id" => 1, "previous_owner_id" => 1, "owner_id" => 8 },
+        { "season" => "2027", "round" => 2, "roster_id" => 4, "previous_owner_id" => 8, "owner_id" => 3 }
+      ]
+    end
+
+    before { allow(client).to receive(:get_league_traded_picks).and_return(traded_picks_data) }
+
+    it "returns every traded pick, symbol-keyed and as sent" do
+      expect(league.traded_picks.first).to eq(season: "2027", round: 1, roster_id: 1, previous_owner_id: 1,
+                                              owner_id: 8)
+      expect(client).to have_received(:get_league_traded_picks).with(league_id)
+    end
+
+    it "caches them" do
+      league.traded_picks
+      league.traded_picks
+      expect(client).to have_received(:get_league_traded_picks).once
+    end
+
+    it "filters by original owner, previous owner and current owner" do
+      expect(league.traded_picks(original_owner_id: 4).map { |pick| pick[:round] }).to eq([2])
+      expect(league.traded_picks(previous_owner_id: 8).map { |pick| pick[:round] }).to eq([2])
+      expect(league.traded_picks(current_owner_id: 8).map { |pick| pick[:round] }).to eq([1])
+    end
+
+    it "treats a null body as no traded picks" do
+      allow(client).to receive(:get_league_traded_picks).and_return(nil)
+      expect(league.traded_picks).to eq([])
+    end
+  end
+
+  describe "#drafts" do
+    let(:league) { described_class.new(league_id, client) }
+    let(:drafts_data) do
+      [{ "draft_id" => "d1", "season" => "2026", "status" => "complete", "settings" => { "rounds" => 4 } }]
+    end
+
+    before { allow(client).to receive(:get_league_drafts).and_return(drafts_data) }
+
+    # Hashes, not Draft objects: a Draft fetches on construction.
+    it "returns the league's drafts as symbol-keyed hashes" do
+      expect(league.drafts).to eq([{ draft_id: "d1", season: "2026", status: "complete", settings: { rounds: 4 } }])
+      expect(client).to have_received(:get_league_drafts).with(league_id)
+    end
+
+    it "caches them" do
+      league.drafts
+      league.drafts
+      expect(client).to have_received(:get_league_drafts).once
+    end
+
+    it "treats a null body as no drafts" do
+      allow(client).to receive(:get_league_drafts).and_return(nil)
+      expect(league.drafts).to eq([])
     end
   end
 end

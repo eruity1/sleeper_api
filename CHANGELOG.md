@@ -1,3 +1,21 @@
+## [1.9.0] - 2026-10-09
+
+### Added
+
+- **`avatar_url(thumb: true)`** on `User` and `League` returns
+  `sleepercdn.com/avatars/thumbs/{id}`: 19 KB of PNG where the full size was
+  2.2 MB of `application/octet-stream` (measured 2026-10-09). The default is
+  unchanged.
+- **`sport:` on `User#leagues`, `#rosters`, `#drafts` and `#summary`**, default
+  `"nfl"`, passed through to the client, which already took it. Each sport is
+  cached apart. Sleeper answers an unknown sport with `200` and `[]` (measured
+  2026-10-09), so a typo reads as "no leagues"; it is not checked against a list.
+- **`League#traded_picks`**, with `Draft#traded_picks`' three filters
+  (`original_owner_id:`, `previous_owner_id:`, `current_owner_id:`). `season`
+  stays the string Sleeper sends.
+- **`League#drafts`**, as symbol-keyed hashes rather than `Draft` objects, since
+  a `Draft` fetches on construction.
+
 ## [1.8.0] - 2026-10-02
 
 ### Added

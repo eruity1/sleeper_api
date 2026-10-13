@@ -19,9 +19,15 @@ RSpec.describe SleeperApi::Configuration do
 
   describe "#timeout=" do
     context "with valid timeout values" do
+      # A web request should give up in a second or two; a lookup answers in ~0.1s.
       it "accepts minimum timeout" do
-        config.timeout = 10
-        expect(config.timeout).to eq(10)
+        config.timeout = 1
+        expect(config.timeout).to eq(1)
+      end
+
+      it "accepts a fraction of a second" do
+        config.timeout = 2.5
+        expect(config.timeout).to eq(2.5)
       end
 
       it "accepts maximum timeout" do
@@ -37,12 +43,27 @@ RSpec.describe SleeperApi::Configuration do
 
     context "with invalid timeout values" do
       it "raises error for timeout too low" do
-        expect { config.timeout = 5 }.to raise_error(SleeperApi::Error, "Timeout must be between 10 and 60 seconds")
+        expect { config.timeout = 0.5 }.to raise_error(SleeperApi::Error, "Timeout must be between 1 and 60 seconds")
       end
 
       it "raises error for timeout too high" do
-        expect { config.timeout = 120 }.to raise_error(SleeperApi::Error, "Timeout must be between 10 and 60 seconds")
+        expect { config.timeout = 120 }.to raise_error(SleeperApi::Error, "Timeout must be between 1 and 60 seconds")
       end
+
+      it "raises the gem's error, not NoMethodError, for a non-number" do
+        [nil, "2"].each do |value|
+          expect { config.timeout = value }.to raise_error(SleeperApi::Error, "Timeout must be between 1 and 60 seconds")
+        end
+      end
+    end
+
+    it "hands a fractional timeout to the request" do
+      config.timeout = 2.5
+      allow(SleeperApi::Client).to receive(:get).and_return(double(success?: true))
+
+      SleeperApi::Client.new(config).send(:make_request, "/v1/state/nfl")
+
+      expect(SleeperApi::Client).to have_received(:get).with("/v1/state/nfl", hash_including(timeout: 2.5))
     end
   end
 

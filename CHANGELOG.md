@@ -1,3 +1,14 @@
+## [Unreleased]
+
+### Changed
+
+- **`config.timeout` accepts 1 to 60 seconds, fractions included** (was 10 to
+  60, whole or not). A caller holding a web request open needs to give up in a
+  second or two: a `/v1/user/{name}` lookup answers in 0.09–0.22s (median
+  0.12s, 30 calls, measured 2026-10-13), so the old 10-second floor held a
+  thread ten times longer than any answer takes. A non-number now raises
+  `SleeperApi::Error` rather than `NoMethodError`.
+
 ## [1.9.0] - 2026-10-09
 
 ### Added

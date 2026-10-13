@@ -50,14 +50,16 @@ module SleeperApi
 
   # Configuration for SleeperApi client behavior.
   #
-  # @attr timeout [Integer] HTTP request timeout (10-60 seconds)
+  # @attr timeout [Numeric] HTTP request timeout (1-60 seconds; fractions allowed)
   # @attr retries [Integer] Maximum retry attempts (0-5)
   # @attr logger [Logger, nil] Logger for debugging requests
   class Configuration
     attr_accessor :logger
     attr_reader :timeout, :retries
 
-    MIN_TIMEOUT = 10
+    # 1, not 10: a caller holding a web request open needs to give up in a
+    # second or two (a lookup answers in ~0.1s), not ten.
+    MIN_TIMEOUT = 1
     MAX_TIMEOUT = 60
     MIN_RETRIES = 0
     MAX_RETRIES = 5
@@ -70,10 +72,10 @@ module SleeperApi
 
     # Set HTTP timeout with validation.
     #
-    # @param value [Integer] Timeout in seconds
-    # @raise [SleeperApi::Error] If outside valid range
+    # @param value [Numeric] Timeout in seconds, e.g. 2.5
+    # @raise [SleeperApi::Error] If not a number in the valid range
     def timeout=(value)
-      unless value.between?(MIN_TIMEOUT, MAX_TIMEOUT)
+      unless value.is_a?(Numeric) && value.between?(MIN_TIMEOUT, MAX_TIMEOUT)
         raise SleeperApi::Error, "Timeout must be between #{MIN_TIMEOUT} and #{MAX_TIMEOUT} seconds"
       end
 

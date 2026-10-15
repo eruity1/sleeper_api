@@ -53,7 +53,7 @@ Customize the gem's behavior:
 
 ```ruby
 SleeperApi.configure do |config|
-  config.timeout = 45    # Request timeout in seconds (10-60)
+  config.timeout = 45    # Request timeout in seconds (1-60, fractions allowed)
   config.retries = 5     # Number of retries on failure (0-5)
   config.logger = Logger.new(STDOUT)  # Custom logger
 end

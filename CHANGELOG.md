@@ -1,3 +1,16 @@
+## [1.10.1] - 2026-10-14
+
+### Fixed
+
+- **A timed-out request is no longer retried behind the gem's back.** Net::HTTP
+  retries an idempotent GET once on its own (`max_retries` defaults to 1), and
+  the gem never switched that off, so every attempt cost two timeouts:
+  `retries = 0` made two requests and `retries = 3` made eight. Against a host
+  that accepts and never answers (measured 2026-10-14), `timeout = 10` gave up
+  after 20.0s and `timeout = 2.5` after 5.0s; now 10.0s and 2.5s. The default
+  configuration's worst case drops from ~243s to ~123s. `retries` is now the
+  only retry.
+
 ## [1.10.0] - 2026-10-14
 
 ### Changed

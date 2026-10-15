@@ -768,5 +768,32 @@ RSpec.describe SleeperApi::Client do
         expect(logger).to have_received(:warn).with(%r{attempt 1/1})
       end
     end
+
+    # 1.10.1. Net::HTTP retries an idempotent GET once on its own (max_retries
+    # defaults to 1), so retries = 0 made two attempts and doubled every
+    # timeout. A real socket: WebMock's to_timeout never reaches that retry.
+    context "when the host accepts and never answers" do
+      let(:server) { TCPServer.new("127.0.0.1", 0) }
+      let(:accepted) { Queue.new }
+
+      around do |example|
+        original = described_class.base_uri
+        acceptor = Thread.new { loop { accepted << server.accept } }
+        described_class.base_uri "http://127.0.0.1:#{server.addr[1]}"
+        example.run
+      ensure
+        described_class.base_uri original
+        acceptor&.kill
+        server.close
+      end
+
+      it "connects once when retries is 0" do
+        config.timeout = 1
+        config.retries = 0
+
+        expect { client.get_user("testuser") }.to raise_error(SleeperApi::Error, /timed out/)
+        expect(accepted.size).to eq(1)
+      end
+    end
   end
 end

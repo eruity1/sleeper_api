@@ -538,7 +538,9 @@ module SleeperApi
     # @raise [SleeperApi::Error] On HTTP errors or timeouts
     def make_request(path, host: nil, not_found: nil)
       named = host ? "#{host}#{path}" : path
-      options = { timeout: @config.timeout }
+      # max_retries: 0, or Net::HTTP retries a timed-out GET once on its own and
+      # every attempt below costs two timeouts.
+      options = { timeout: @config.timeout, max_retries: 0 }
       options[:base_uri] = host if host
 
       @config.logger&.info("Making request to #{host || self.class.base_uri}#{path}")
